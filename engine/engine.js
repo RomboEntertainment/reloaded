@@ -762,6 +762,10 @@ RomboEngine.prototype.dropOut=function(player)
   {
     this.deleteSelection(player);
   }
+  if(this.isMenuCreated())
+  {
+    this.isNeoReady();
+  }
 }
 
 //Track who dropped in, because asking the NSA is mainstream

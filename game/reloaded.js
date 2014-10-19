@@ -70,6 +70,7 @@ RomboFight=function(input)
           "pos":{"x":0,"y":192},
           "action":"press",
           "inputTypes":["gamepad"],
+          "buttonToPress":"any",
           "onPress":function(element,player)
           {
             this.createMenu(this.menus.layoutMenu);
