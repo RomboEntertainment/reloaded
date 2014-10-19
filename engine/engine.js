@@ -158,7 +158,7 @@ RomboEngine=function(input)
       if(self.inputs[i].type=="mouse")
       {
         mouseIsDroppedIn=true;
-        mouseInput=0;
+        mouseInput=i;
       }
     }
     if(!mouseIsDroppedIn)
@@ -168,7 +168,8 @@ RomboEngine=function(input)
         "settings":[],
         "deviceName":"Mouse",
         "clicking":true,
-        "justClciked":false
+        "justClciked":false,
+        "lookAt":document.body
       })
     }
     else
@@ -188,7 +189,7 @@ RomboEngine=function(input)
       if(self.inputs[i].type=="mouse")
       {
         mouseIsDroppedIn=true;
-        mouseInput=0;
+        mouseInput=i;
       }
     }
     //Ctrl+V is my favorite tool
@@ -1334,6 +1335,10 @@ RomboEngine.prototype.listenInputs=function()
     else if(input.type=="gamepad")
     {
       var gamepad=this.getGamepadByIndex(input.index);
+      if(!gamepad)
+      {
+        continue;
+      }
       if(!("pressed" in input))
       {
         input.pressed=[];
@@ -1450,7 +1455,7 @@ RomboEngine.prototype.listenInputs=function()
         if(selection)
         {
           var selectionButton=selection.buttonToPress || 0;
-          if(((selectionButton=="any" && this.isFaceButtonJustPressed(input)) || input.justPressed.indexOf(input.remap.indexOf(selectionButton))>-1))
+          if(((selectionButton=="any" && this.isFaceButtonJustPressed(input)) || input.justPressed.indexOf(input.remap[selectionButton])>-1))
           {
             this.fireAction(rawSelection,player);
           }
