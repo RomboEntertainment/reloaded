@@ -1,0 +1,80 @@
+@import url(http://fonts.googleapis.com/css?family=Ubuntu);
+
+.rombo-engine-gameholder
+{
+  font-family: 'Ubuntu', sans-serif;
+  color: #fff;
+  font-size: 24px;
+  text-shadow: 0 0 10px #000000;
+}
+
+.rombo-engine-menuholder
+{
+}
+
+.rombo-engine-menuholder small
+{
+  font-size: 12px;
+}
+
+.rombo-engine-menu-default
+{  
+  border: 32px solid transparent;
+  border-image: url(images/red.png) fill 32 stretch;
+  height: 32px;
+  margin: -32px;
+  opacity: 0.6;
+  transition: .5s;
+  text-align:center;
+}
+
+.rombo-engine-menu-image
+{
+  opacity: 0.6;
+  transition: .5s;
+  text-align:center;
+}
+
+.rombo-engine-menu-active
+{
+  opacity: 1;
+}
+
+.rombo-engine-menu-active *
+{
+  opacity: 1;
+}
+
+.rombo-engine-notif-text
+{  
+  border: 32px solid transparent;
+  border-image: url(images/red.png) fill 32 stretch;
+  height: 32px;
+  margin: -32px;
+  opacity: 0.3;
+  /* transition: .5s; */
+  text-align:center;
+}
+
+.rombo-engine-notif-text:last-child
+{
+  opacity: 1;
+}
+
+.rombo-engine-menu-flatbar
+{
+  border: 16px solid transparent;
+  border-image: url(images/red.png) fill 32 stretch;
+  width: 4px;
+  height: 16px;
+  float: left;
+}
+
+.rombo-engine-menu-seldot
+{
+  border: 16px solid transparent;
+  border-image: url(images/red.png) fill 32 stretch;
+  width: 0px;
+  height: 16px;
+  float: left;
+}
