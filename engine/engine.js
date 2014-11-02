@@ -11,6 +11,11 @@ RomboEngine=function(input)
   this.canvas=document.createElement('canvas');
   this.context=this.canvas.getContext('2d');
   
+  this.technicalCanvas=document.createElement('canvas');
+  this.technicalContext=this.technicalCanvas.getContext('2d');
+  this.secondaryTechnicalCanvas=document.createElement('canvas');
+  this.secondaryTechnicalContext=this.secondaryTechnicalCanvas.getContext('2d');
+  
   this.holder=document.createElement('div'); //Gameholder
   this.holder.style.width="100%";
   this.holder.style.height="100%";
@@ -463,6 +468,9 @@ RomboEngine=function(input)
   
   //Create initial menu
   this.initMenu(gamepadsEnabled);
+  
+  //First step of anti-aliasing
+  this.context.imageSmoothingEnabled=true
   
   return this;
 };
@@ -1687,6 +1695,49 @@ RomboEngine.prototype.startGameMenu=function()
       ]
     });
   }
+}
+
+//This function could be in a game, but why not write it there?
+//Now I know why should it be a part of the engine. Anti-aliasing for the win!
+RomboEngine.prototype.drawImageTo=function(image,point,size,opacity)
+{
+  opacity=(opacity===undefined) ? 1 : Math.max(Math.min(opacity,1),0);
+  size=size || 1;
+  var w=image.width*size;
+  var h=image.height*size;
+  
+  //Anti-aliasing by stepping down the image
+  //Technically this is mipmapping, not anti-aliasing, but nevermind
+  var tw=image.width;
+  var th=image.height;
+  this.technicalCanvas.width=tw;
+  this.technicalCanvas.height=th;
+  this.secondaryTechnicalCanvas.width=tw;
+  this.secondaryTechnicalCanvas.height=th;
+  var imageDone=false;
+  var firstIteration=true;
+  while(!imageDone)
+  {
+    this.technicalContext.drawImage((firstIteration ? image : this.secondaryTechnicalCanvas),0,0,tw,th);
+    firstIteration=false;
+    if(w*2>tw)
+    {
+      imageDone=true;
+    }
+    else
+    {
+      this.secondaryTechnicalCanvas.width=tw;
+      this.secondaryTechnicalCanvas.height=th;
+      this.secondaryTechnicalContext.drawImage(this.technicalCanvas,0,0,tw,th,0,0,tw,th);
+      this.technicalContext.clearRect(0,0,tw,th);
+      tw=tw/2;
+      th=th/2;
+    }
+  }
+  
+  this.context.globalAlpha=opacity;
+  this.context.drawImage(this.technicalCanvas,0,0,tw,th,point.x-w/2,point.y-h/2,w,h);
+  this.context.globalAlpha=1;
 }
 
 //External code snipetts starts here

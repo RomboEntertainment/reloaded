@@ -111,6 +111,33 @@ RomboFight=function(input)
       }
     }
   };
+  
+  //Load the images
+  this.images={
+    "base":this.loadImage("game/images/base.png"),
+    "heat":this.loadImage("game/images/heat.png")
+  }
+  this.playerImages={
+    "base":[
+      this.loadImage("game/images/base_g.png"),
+      this.loadImage("game/images/base_y.png"),
+      this.loadImage("game/images/base_w.png"),
+      this.loadImage("game/images/base_b.png"),
+      this.loadImage("game/images/base_e.png"),
+      this.loadImage("game/images/base_r.png")
+    ],
+    "fighter":[
+      this.loadImage("game/images/fighter_g.png"),
+      this.loadImage("game/images/fighter_y.png"),
+      this.loadImage("game/images/fighter_w.png"),
+      this.loadImage("game/images/fighter_b.png"),
+      this.loadImage("game/images/fighter_e.png"),
+      this.loadImage("game/images/fighter_r.png")
+    ]
+  }
+  
+  //And some space for the players
+  this.fighters=[];
 }
 //Inheritance
 RomboFight.prototype=RomboEngine.prototype;
@@ -123,5 +150,53 @@ RomboFight.prototype.gameMenu=function()
 
 RomboFight.prototype.startGame=function()
 {
-  this.notify('Game should start here, sorry for the lack of implementation');
+  this.applyMenu(null,"ingame");
+  this.mode="game";
+}
+
+//The most underrated code ever.
+//It does everything, but no one cares until it becomes slow.
+RomboFight.prototype.gameTick=function()
+{
+  if(Array("game").indexOf(this.mode)>-1) //The second laziest structure I've ever designed. I'm so proud of myself.
+  {
+    
+  }
+}
+
+//Sorry, I wasn't right. If anything becomes slow, they blame THIS code.
+RomboFight.prototype.gameDraw=function()
+{
+  if(Array("game").indexOf(this.mode)>-1) //See?
+  {
+    for(var i=0;i<this.fighters.length;i++)
+    {
+      this.drawFighter(this.fighters[i]);
+    }
+  }
+}
+
+//But OK, let's do something less underrated
+RomboFight.prototype.spawnFighter=function(fighterdata)
+{
+  this.fighters.push({
+    "pos":{"x":120,"y":120},
+    "speed":{"x":0,"y":0},
+    "health":1,
+    "heat":0,
+    "effects":[],
+    "player":fighterdata.player,
+    "weapons":[]
+  })
+}
+
+RomboFight.prototype.moveFighter=function(fighter)
+{
+}
+
+RomboFight.prototype.drawFighter=function(fighter)
+{
+  this.drawImageTo(this.images.base,fighter.pos,0.2);
+  this.drawImageTo(this.playerImages.base[fighter.player],fighter.pos,0.2,fighter.health);
+  this.drawImageTo(this.playerImages.fighter[fighter.player],fighter.pos,0.2);
 }
