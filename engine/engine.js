@@ -1710,9 +1710,9 @@ RomboEngine.prototype.startGameMenu=function()
 }
 
 //Let me write there another utility function. I know you like them.
-RomboEngine.prototype.getPlayerId=function(input)
+RomboEngine.prototype.getPlayerId=function(color)
 {
-  this.colors.indexOf(input.color);
+  return this.colors.indexOf(color);
 }
 
 //This function could be in a game, but why not write it there?

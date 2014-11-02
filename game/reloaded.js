@@ -199,35 +199,35 @@ RomboFight.prototype.moveFighter=function(fighter)
 {
   var realSpeed=Math.sqrt(Math.pow(fighter.speed.x,2)+Math.pow(fighter.speed.y,2));
   var drag=Math.pow(realSpeed,2)*0.0001;
-  fighter.speed.x-=(fighter.speed.x) ? realSpeed*drag/fighter.speed.x : 0;
-  fighter.speed.y-=(fighter.speed.y) ? realSpeed*drag/fighter.speed.y : 0;
+  fighter.speed.x-=(fighter.speed.x) ? fighter.speed.x*drag/realSpeed : 0;
+  fighter.speed.y-=(fighter.speed.y) ? fighter.speed.y*drag/realSpeed : 0;
   
   var realSpeed=Math.sqrt(Math.pow(fighter.speed.x,2)+Math.pow(fighter.speed.y,2));
   var friction=Math.min(realSpeed,1);
-  fighter.speed.x-=(fighter.speed.x) ? realSpeed*friction/fighter.speed.x : 0;
-  fighter.speed.y-=(fighter.speed.y) ? realSpeed*friction/fighter.speed.y : 0;
+  fighter.speed.x-=(fighter.speed.x) ? fighter.speed.x*friction/realSpeed : 0;
+  fighter.speed.y-=(fighter.speed.y) ? fighter.speed.y*friction/realSpeed : 0;
    
   fighter.pos.x+=fighter.speed.x;
   fighter.pos.y+=fighter.speed.y;
   
-  if(fighter.pos.x<0)
+  if(fighter.pos.x<fighter.size.x/2)
   {
-    fighter.pos.x=0;
+    fighter.pos.x=fighter.size.x/2;
     fighter.speed.x=-fighter.speed.x/2;
   }
-  if(fighter.pos.x>this.canvas.width-fighter.size.x)
+  if(fighter.pos.x>this.canvas.width-fighter.size.x/2)
   {
-    fighter.pos.x=this.canvas.width-fighter.size.x;
+    fighter.pos.x=this.canvas.width-fighter.size.x/2;
     fighter.speed.x=-fighter.speed.x/2;
   }
-  if(fighter.pos.y<0)
+  if(fighter.pos.y<fighter.size.y/2)
   {
-    fighter.pos.y=0;
+    fighter.pos.y=fighter.size.y/2;
     fighter.speed.y=-fighter.speed.y/2;
   }
-  if(fighter.pos.y>this.canvas.height-fighter.size.y)
+  if(fighter.pos.y>this.canvas.height-fighter.size.y/2)
   {
-    fighter.pos.y=this.canvas.height-fighter.size.y;
+    fighter.pos.y=this.canvas.height-fighter.size.y/2;
     fighter.speed.y=-fighter.speed.y/2;
   }
 }
