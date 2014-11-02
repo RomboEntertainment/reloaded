@@ -11,7 +11,7 @@ RomboEngine=function(input)
   this.canvas=document.createElement('canvas');
   this.context=this.canvas.getContext('2d');
   
-  this.technicalCanvas=document.createElement('canvas');
+  this.technicalCanvas=document.createElement('canvas'); //For anti-aliasing and stuff
   this.technicalContext=this.technicalCanvas.getContext('2d');
   this.secondaryTechnicalCanvas=document.createElement('canvas');
   this.secondaryTechnicalContext=this.secondaryTechnicalCanvas.getContext('2d');
@@ -466,11 +466,16 @@ RomboEngine=function(input)
     self.tick.call(self);
   },this.interval);
   
+  
   //Create initial menu
   this.initMenu(gamepadsEnabled);
   
   //First step of anti-aliasing
   this.context.imageSmoothingEnabled=true
+  
+  //Finally set up the draw loop
+  this.requestFrame=true;
+  this.draw();
   
   return this;
 };
@@ -539,7 +544,8 @@ RomboEngine.prototype.tick=function()
   }
   
   //Oh, and draw it out. That's bit of necessary...
-  this.draw.call(this);
+  //this.draw.call(this);
+  //No, we'll do it on an other way
   
   this.indraw=false;
   return true;
@@ -565,6 +571,12 @@ RomboEngine.prototype.draw=function()
   
   //Don't worry about the HUD. That's DOM and the browser makes it for us.
   //You are not an intelligence dampening core to draw the HUD to the canvas.
+  
+  //This is needed for the draw loop
+  var self=this;
+  requestAnimFrame(function(){
+    self.draw.call(self)
+  });
 };
 
 //This function sets up the background controller
@@ -647,7 +659,7 @@ RomboEngine.prototype.checkDropInGamepads=function()
       var gamepad;
       if(gamepad=this.getInputGamepadByIndex(i))
       {
-        this.dropOut(this.colors.indexOf(gamepad.color));
+        this.dropOut(this.getPlayerId(gamepad.color));
       }
     }
   }
@@ -728,7 +740,7 @@ RomboEngine.prototype.dropIn=function(currentInput)
     }
     else
     {
-      var colorId=this.colors.indexOf(color);
+      var colorId=this.getPlayerId(color);
       this.notify(currentInput.deviceName+" dropped in as "+this.colorSettings[colorId].name,colorId);
       if(this.isMenuCreated())
       {
@@ -865,7 +877,7 @@ RomboEngine.prototype.showDropinMenu=function()
 //This name is really self docuenting
 RomboEngine.prototype.getSettingsOfColor=function(color)
 {
-  return this.colorSettings[this.colors.indexOf(color)];
+  return this.colorSettings[this.getPlayerId(color)];
 }
 
 //Another menu function if you thought it was simple
@@ -963,14 +975,14 @@ RomboEngine.prototype.createMenu=function(menu)
   
   for(var i=0;i<this.inputs.length;i++)
   {
-    if(selections[this.colors.indexOf(this.inputs[i].color)])
+    if(selections[this.getPlayerId(this.inputs[i].color)])
     {
-      var selection=selections[this.colors.indexOf(this.inputs[i].color)];
-      this.moveSelection(this.activeMenu.elements[selection.elementIndex],this.colors.indexOf(this.inputs[i].color),selection.checked); //I should really write a utility function for that
+      var selection=selections[this.getPlayerId(this.inputs[i].color)];
+      this.moveSelection(this.activeMenu.elements[selection.elementIndex],this.getPlayerId(this.inputs[i].color),selection.checked); //I should really write a utility function for that
     }
     else
     {
-      this.moveSelection(this.getFirstSelectableFor(this.activeMenu,this.colors.indexOf(this.inputs[i].color)),this.colors.indexOf(this.inputs[i].color));
+      this.moveSelection(this.getFirstSelectableFor(this.activeMenu,this.getPlayerId(this.inputs[i].color)),this.getPlayerId(this.inputs[i].color));
     }
   }
 }
@@ -1228,7 +1240,7 @@ RomboEngine.prototype.getInputByPlayer=function(id)
   for(var i=0;i<this.inputs.length;i++)
   {
     var input=this.inputs[i];
-    if(this.colors.indexOf(input.color)==id)
+    if(this.getPlayerId(input.color)==id)
     {
       return input;
     }
@@ -1324,7 +1336,7 @@ RomboEngine.prototype.listenInputs=function()
   for(var i=0;i<this.inputs.length;i++)
   {
     var input=this.inputs[i];
-    var player=this.colors.indexOf(input.color);
+    var player=this.getPlayerId(input.color);
     if(input.type=="mouse") //Mouse control, no sh*t Sherlock
     {
       if(this.isMenuCreated())
@@ -1592,7 +1604,7 @@ RomboEngine.prototype.isNeoReady=function()
     for(var i=0;i<this.inputs.length;i++)
     {
       var input=this.inputs[i];
-      var player=this.colors.indexOf(input.color);
+      var player=this.getPlayerId(input.color);
       var selection=this.getSelectionOf(player);
       if(selection.selected.onChoose) //Maybe onChosenOne instead
       {
@@ -1697,6 +1709,12 @@ RomboEngine.prototype.startGameMenu=function()
   }
 }
 
+//Let me write there another utility function. I know you like them.
+RomboEngine.prototype.getPlayerId=function(input)
+{
+  this.colors.indexOf(input.color);
+}
+
 //This function could be in a game, but why not write it there?
 //Now I know why should it be a part of the engine. Anti-aliasing for the win!
 RomboEngine.prototype.drawImageTo=function(image,point,size,opacity)
@@ -1777,5 +1795,15 @@ function makeid(len)
 
 	  return text;
 }
+
+//RequestAnimationFrame callback by Paul Irish
+window.requestAnimFrame = (function(){
+  return  window.requestAnimationFrame       ||
+          window.webkitRequestAnimationFrame ||
+          window.mozRequestAnimationFrame    ||
+          function( callback ){
+            window.setTimeout(callback, 1000 / 60);
+          };
+})();
 
 //Why am I commenting this? I have a little bit too much freetime...

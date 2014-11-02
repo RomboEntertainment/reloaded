@@ -138,6 +138,7 @@ RomboFight=function(input)
   
   //And some space for the players
   this.fighters=[];
+  this.controls=[];
 }
 //Inheritance
 RomboFight.prototype=RomboEngine.prototype;
@@ -160,7 +161,10 @@ RomboFight.prototype.gameTick=function()
 {
   if(Array("game").indexOf(this.mode)>-1) //The second laziest structure I've ever designed. I'm so proud of myself.
   {
-    
+    for(var i=0;i<this.fighters.length;i++)
+    {
+      this.moveFighter(this.fighters[i]);
+    }
   }
 }
 
@@ -182,6 +186,7 @@ RomboFight.prototype.spawnFighter=function(fighterdata)
   this.fighters.push({
     "pos":{"x":120,"y":120},
     "speed":{"x":0,"y":0},
+    "size":{"x":50,"y":80},
     "health":1,
     "heat":0,
     "effects":[],
@@ -192,6 +197,39 @@ RomboFight.prototype.spawnFighter=function(fighterdata)
 
 RomboFight.prototype.moveFighter=function(fighter)
 {
+  var realSpeed=Math.sqrt(Math.pow(fighter.speed.x,2)+Math.pow(fighter.speed.y,2));
+  var drag=Math.pow(realSpeed,2)*0.0001;
+  fighter.speed.x-=(fighter.speed.x) ? realSpeed*drag/fighter.speed.x : 0;
+  fighter.speed.y-=(fighter.speed.y) ? realSpeed*drag/fighter.speed.y : 0;
+  
+  var realSpeed=Math.sqrt(Math.pow(fighter.speed.x,2)+Math.pow(fighter.speed.y,2));
+  var friction=Math.min(realSpeed,1);
+  fighter.speed.x-=(fighter.speed.x) ? realSpeed*friction/fighter.speed.x : 0;
+  fighter.speed.y-=(fighter.speed.y) ? realSpeed*friction/fighter.speed.y : 0;
+   
+  fighter.pos.x+=fighter.speed.x;
+  fighter.pos.y+=fighter.speed.y;
+  
+  if(fighter.pos.x<0)
+  {
+    fighter.pos.x=0;
+    fighter.speed.x=-fighter.speed.x/2;
+  }
+  if(fighter.pos.x>this.canvas.width-fighter.size.x)
+  {
+    fighter.pos.x=this.canvas.width-fighter.size.x;
+    fighter.speed.x=-fighter.speed.x/2;
+  }
+  if(fighter.pos.y<0)
+  {
+    fighter.pos.y=0;
+    fighter.speed.y=-fighter.speed.y/2;
+  }
+  if(fighter.pos.y>this.canvas.height-fighter.size.y)
+  {
+    fighter.pos.y=this.canvas.height-fighter.size.y;
+    fighter.speed.y=-fighter.speed.y/2;
+  }
 }
 
 RomboFight.prototype.drawFighter=function(fighter)
@@ -199,4 +237,5 @@ RomboFight.prototype.drawFighter=function(fighter)
   this.drawImageTo(this.images.base,fighter.pos,0.2);
   this.drawImageTo(this.playerImages.base[fighter.player],fighter.pos,0.2,fighter.health);
   this.drawImageTo(this.playerImages.fighter[fighter.player],fighter.pos,0.2);
+  this.drawImageTo(this.images.heat,fighter.pos,0.2,fighter.heat);
 }
