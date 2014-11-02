@@ -25,7 +25,8 @@ RomboFight=function(input)
           "action":"choose",
           "onChoose":function(element,player)
           {
-          }
+          },
+          "name":"locgame"
         },
         {
           "type":"button",
@@ -36,7 +37,8 @@ RomboFight=function(input)
           "action":"choose",
           "onChoose":function(element,player)
           {
-          }
+          },
+          "name":"multi"
         },
         {
           "type":"button",
@@ -88,7 +90,25 @@ RomboFight=function(input)
             this.dropOut(player);
           }
         }
-      ]
+      ],
+      "onChoose":function(choices)
+      {
+        var agreement=true;
+        for(var i=0;i<choices.length-1;i++)
+        {
+          if(choices[i]!=choices[i+1])
+          {
+            agreement=false;
+          }
+        }
+        if(agreement)
+        {
+          if(choices[0].name=="locgame")
+          {
+            this.startGame();
+          }
+        }
+      }
     }
   };
 }
@@ -99,4 +119,9 @@ RomboFight.prototype=RomboEngine.prototype;
 RomboFight.prototype.gameMenu=function()
 {
   this.createMenu(this.menuSystem.mainMenu);
+}
+
+RomboFight.prototype.startGame=function()
+{
+  this.notify('Game should start here, sorry for the lack of implementation');
 }
