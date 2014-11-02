@@ -1,5 +1,5 @@
 // RomboFight Reloaded
-// (cc) Licensed under Creative Commons CC-BY-NC by Elemential 2014
+// (cc) Licensed under Creative Commons CC-BY-NC by Three Universe Studios 2014
 
 //Constructor
 RomboFight=function(input)
@@ -149,6 +149,7 @@ RomboFight.prototype.gameMenu=function()
   this.createMenu(this.menuSystem.mainMenu);
 }
 
+//It is inevitable.
 RomboFight.prototype.startGame=function()
 {
   this.applyMenu(null,"ingame");
@@ -161,6 +162,10 @@ RomboFight.prototype.gameTick=function()
 {
   if(Array("game").indexOf(this.mode)>-1) //The second laziest structure I've ever designed. I'm so proud of myself.
   {
+    for(var i=0;i<this.controls.length;i++)
+    {
+      this.useControl(this.controls[i]);
+    }
     for(var i=0;i<this.fighters.length;i++)
     {
       this.moveFighter(this.fighters[i]);
@@ -171,6 +176,12 @@ RomboFight.prototype.gameTick=function()
 //Sorry, I wasn't right. If anything becomes slow, they blame THIS code.
 RomboFight.prototype.gameDraw=function()
 {
+  if(this.drawWarning)
+  {
+    this.context.fillStyle="#ff0000";
+    this.context.fillRect(0,0,this.canvas.width,this.canvas.height);
+    this.drawWarning=false;
+  }
   if(Array("game").indexOf(this.mode)>-1) //See?
   {
     for(var i=0;i<this.fighters.length;i++)
@@ -187,6 +198,7 @@ RomboFight.prototype.spawnFighter=function(fighterdata)
     "pos":{"x":120,"y":120},
     "speed":{"x":0,"y":0},
     "size":{"x":50,"y":80},
+    "sizeRatio":0.2,
     "health":1,
     "heat":0,
     "effects":[],
@@ -195,18 +207,26 @@ RomboFight.prototype.spawnFighter=function(fighterdata)
   })
 }
 
+//You can even see this in action
 RomboFight.prototype.moveFighter=function(fighter)
 {
   var realSpeed=Math.sqrt(Math.pow(fighter.speed.x,2)+Math.pow(fighter.speed.y,2));
-  var drag=Math.pow(realSpeed,2)*0.0001;
-  fighter.speed.x-=(fighter.speed.x) ? fighter.speed.x*drag/realSpeed : 0;
-  fighter.speed.y-=(fighter.speed.y) ? fighter.speed.y*drag/realSpeed : 0;
+  var drag=Math.pow(realSpeed,2)*0.0064;
+  if(realSpeed)
+  {
+    fighter.speed.x-=fighter.speed.x*drag/realSpeed;
+    fighter.speed.y-=fighter.speed.y*drag/realSpeed;
+  }
   
   var realSpeed=Math.sqrt(Math.pow(fighter.speed.x,2)+Math.pow(fighter.speed.y,2));
   var friction=Math.min(realSpeed,1);
-  fighter.speed.x-=(fighter.speed.x) ? fighter.speed.x*friction/realSpeed : 0;
-  fighter.speed.y-=(fighter.speed.y) ? fighter.speed.y*friction/realSpeed : 0;
-   
+  if(realSpeed)
+  {
+    fighter.speed.x-=fighter.speed.x*friction/realSpeed;
+    fighter.speed.y-=fighter.speed.y*friction/realSpeed;
+  }
+  
+  
   fighter.pos.x+=fighter.speed.x;
   fighter.pos.y+=fighter.speed.y;
   
@@ -232,10 +252,72 @@ RomboFight.prototype.moveFighter=function(fighter)
   }
 }
 
+//False. You will need this to see the previous function.
 RomboFight.prototype.drawFighter=function(fighter)
 {
-  this.drawImageTo(this.images.base,fighter.pos,0.2);
-  this.drawImageTo(this.playerImages.base[fighter.player],fighter.pos,0.2,fighter.health);
-  this.drawImageTo(this.playerImages.fighter[fighter.player],fighter.pos,0.2);
-  this.drawImageTo(this.images.heat,fighter.pos,0.2,fighter.heat);
+  this.drawImageTo(this.images.base,fighter.pos,fighter.sizeRatio);
+  this.drawImageTo(this.playerImages.base[fighter.player],fighter.pos,fighter.sizeRatio,fighter.health);
+  this.drawImageTo(this.playerImages.fighter[fighter.player],fighter.pos,fighter.sizeRatio);
+  this.drawImageTo(this.images.heat,fighter.pos,fighter.sizeRatio,fighter.heat);
+}
+
+//But they will respect this function immediately when we turn it off
+RomboFight.prototype.useControl=function(control)
+{
+  if(control.input.type=="gamepad")
+  {
+    control.dir.x=this.getGamepadByIndex(control.input.index).axes[0];
+    control.dir.y=this.getGamepadByIndex(control.input.index).axes[1];
+    if(control.input.pressed.indexOf(12)>-1 && control.input.pressed.indexOf(13)==-1)
+    {
+      control.dir.y=-1;
+    }
+    if(control.input.pressed.indexOf(13)>-1 && control.input.pressed.indexOf(12)==-1)
+    {
+      control.dir.y=+1;
+    }
+    if(control.input.pressed.indexOf(14)>-1 && control.input.pressed.indexOf(15)==-1)
+    {
+      control.dir.x=-1;
+    }
+    if(control.input.pressed.indexOf(15)>-1 && control.input.pressed.indexOf(14)==-1)
+    {
+      control.dir.x=+1;
+    }
+  }
+  else if(control.input.type=="keyboard")
+  {
+    var x=0;
+    var y=0;
+    x-=(control.input.pressed.indexOf(37)>-1) ? 1 : 0;
+    x+=(control.input.pressed.indexOf(39)>-1) ? 1 : 0;
+    y-=(control.input.pressed.indexOf(38)>-1) ? 1 : 0;
+    y+=(control.input.pressed.indexOf(40)>-1) ? 1 : 0;
+    control.dir.x=x;
+    control.dir.y=y;
+  }
+  
+  var fullspeed=Math.sqrt(Math.pow(control.dir.x,2),Math.pow(control.dir.y,2));
+  if(fullspeed>1)
+  {
+    control.dir.x/=fullspeed;
+    control.dir.y/=fullspeed;
+  }
+  
+  control.fighter.speed.x+=25*control.dir.x;
+  control.fighter.speed.y+=25*control.dir.y;
+}
+
+//And ask for this
+RomboFight.prototype.takeControl=function(fighter,input)
+{
+  this.controls.push({
+    "dir":{"x":0,"y":0},
+    "primary":false,
+    "secondary":false,
+    "support":false,
+    "ultra":false,
+    "fighter":fighter,
+    "input":input
+  })
 }

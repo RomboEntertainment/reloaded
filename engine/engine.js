@@ -1,5 +1,5 @@
 // Rombo Game Engine
-// (cc) Licensed under Creative Commons CC-BY-NC by Elemential 2014
+// (cc) Licensed under Creative Commons CC-BY-NC by Three Universe Studios 2014
 
 //Constructor, in case you didn't notice
 RomboEngine=function(input)
@@ -147,7 +147,7 @@ RomboEngine=function(input)
     }
     //Let's do something different.
     var index;
-    if(keyboardIsDroppedIn && (index=self.inputs[keyboardInput].pressed.indexOf(event.keyCode))>-1) //In case you released a key that you didn't hold
+    while(keyboardIsDroppedIn && (index=self.inputs[keyboardInput].pressed.indexOf(event.keyCode))>-1) //In case you released a key that you didn't hold //More than once
     {
       self.inputs[keyboardInput].pressed.splice(index,1); //How about no
     }
@@ -1505,7 +1505,7 @@ RomboEngine.prototype.listenInputs=function()
         this.stepSelection(player,3);
       }
       
-      if(this.isMenuCreated() && input.justPressed.indexOf(13)>-1) //Towards the screen
+      if(this.isMenuCreated() && (input.justPressed.indexOf(13)>-1 || input.justPressed.indexOf(32)>-1)) //Towards the screen
       {
         var selection=this.getSelectionOf(player);
         this.fireAction(selection,player);

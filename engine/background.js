@@ -1,5 +1,5 @@
 // Rombo Game Background
-// (cc) Licensed under Creative Commons CC-BY-NC by Elemential 2014
+// (cc) Licensed under Creative Commons CC-BY-NC by Three Universe Studios 2014
 
 //Constructor
 RomboBackground=function(input)
