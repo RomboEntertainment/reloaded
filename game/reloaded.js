@@ -147,7 +147,72 @@ RomboFight=function(input)
     {"x":0,"y":110},
     {"x":0,"y":0}
   ];
+  var ordinaryBarrel=[
+    this.loadImage("game/images/barrel_g.png"),
+    this.loadImage("game/images/barrel_y.png"),
+    this.loadImage("game/images/barrel_w.png"),
+    this.loadImage("game/images/barrel_b.png"),
+    this.loadImage("game/images/barrel_e.png"),
+    this.loadImage("game/images/barrel_r.png")
+  ];
   this.weapons={
+    //Primary or secondary
+    "simplegun":
+    {
+      "barrels":[
+        {
+          "x":0,
+          "y":7.5,
+          "recoilPerShot":0.25,
+          "maxRecoil":0.2,
+          "recoilDampener":0.1,
+          "shotPower":50,
+          "shotDamage":64
+        }
+      ],
+      "images":[
+        this.loadImage("game/images/simplegun_g.png"),
+        this.loadImage("game/images/simplegun_y.png"),
+        this.loadImage("game/images/simplegun_w.png"),
+        this.loadImage("game/images/simplegun_b.png"),
+        this.loadImage("game/images/simplegun_e.png"),
+        this.loadImage("game/images/simplegun_r.png")
+      ],
+      "barrelImages":ordinaryBarrel
+    },
+    "doublegun":
+    {
+      "barrels":[
+        {
+          "x":-10,
+          "y":7.5,
+          "recoilPerShot":0.25,
+          "maxRecoil":0.2,
+          "recoilDampener":0.1,
+          "shotPower":50,
+          "shotDamage":64
+        },
+        {
+          "x":10,
+          "y":7.5,
+          "recoilPerShot":0.25,
+          "maxRecoil":0.2,
+          "recoilDampener":0.1,
+          "shotPower":50,
+          "shotDamage":64
+        }
+      ],
+      "images":[
+        this.loadImage("game/images/doublegun_g.png"),
+        this.loadImage("game/images/doublegun_y.png"),
+        this.loadImage("game/images/doublegun_w.png"),
+        this.loadImage("game/images/doublegun_b.png"),
+        this.loadImage("game/images/doublegun_e.png"),
+        this.loadImage("game/images/doublegun_r.png")
+      ],
+      "barrelImages":ordinaryBarrel
+    },
+    //Support weapons
     "shield":
     {
       "barrels":[],
@@ -158,7 +223,7 @@ RomboFight=function(input)
         this.loadImage("game/images/shieldgen_b.png"),
         this.loadImage("game/images/shieldgen_e.png"),
         this.loadImage("game/images/shieldgen_r.png")
-      ],
+      ]
     },
     "bumper":
     {
@@ -170,7 +235,7 @@ RomboFight=function(input)
         this.loadImage("game/images/bumpergen_b.png"),
         this.loadImage("game/images/bumpergen_e.png"),
         this.loadImage("game/images/bumpergen_r.png")
-      ],
+      ]
     },
     "mine":
     {
@@ -182,7 +247,7 @@ RomboFight=function(input)
         this.loadImage("game/images/minegen_b.png"),
         this.loadImage("game/images/minegen_e.png"),
         this.loadImage("game/images/minegen_r.png")
-      ],
+      ]
     },
     "shieldtrail":
     {
@@ -194,7 +259,7 @@ RomboFight=function(input)
         this.loadImage("game/images/shieldtrail_b.png"),
         this.loadImage("game/images/shieldtrail_e.png"),
         this.loadImage("game/images/shieldtrail_r.png")
-      ],
+      ]
     },
     "flametrail":
     {
@@ -206,7 +271,7 @@ RomboFight=function(input)
         this.loadImage("game/images/flametrail_b.png"),
         this.loadImage("game/images/flametrail_e.png"),
         this.loadImage("game/images/flametrail_r.png")
-      ],
+      ]
     },
     "speedtrail":
     {
@@ -218,7 +283,7 @@ RomboFight=function(input)
         this.loadImage("game/images/speedtrail_b.png"),
         this.loadImage("game/images/speedtrail_e.png"),
         this.loadImage("game/images/speedtrail_r.png")
-      ],
+      ]
     }
   };
 }
@@ -285,7 +350,8 @@ RomboFight.prototype.spawnFighter=function(fighterdata)
     "heat":0,
     "effects":[],
     "player":fighterdata.player,
-    "weapons":[]
+    "weapons":[],
+    "jedi":(fighterdata.jedi!==undefined) ? fighterdata.jedi : true //This specifies the side it'll fight on if you don't understand for some reason
   })
 }
 
@@ -423,10 +489,24 @@ RomboFight.prototype.addWeapon=function(fighter,type,slot)
 RomboFight.prototype.drawWeapon=function(fighter,weapon)
 {
   var weaponProto=this.weapons[weapon.type];
-  if(weaponProto.barrels.length)
+  var point={"x":this.weaponSlots[weapon.slot].x*fighter.sizeRatio,"y":this.weaponSlots[weapon.slot].y*fighter.sizeRatio};
+  this.context.save();
+  this.context.translate(fighter.pos.x,fighter.pos.y);
+  if(!fighter.jedi)
   {
-    //Draw barrels here
+    this.context.rotate(Math.PI);
   }
-  var point={"x":fighter.pos.x+this.weaponSlots[weapon.slot].x*fighter.sizeRatio,"y":fighter.pos.y+this.weaponSlots[weapon.slot].y*fighter.sizeRatio};
-  this.drawImageTo(weaponProto.images[fighter.player],point,fighter.sizeRatio);
+  this.context.translate(point.x,point.y);
+  if(weapon.slot==1)
+  {
+    this.context.scale(-1,1);
+  }
+  for(var i=0;i<weaponProto.barrels.length;i++)
+  {
+    var barrel=weaponProto.barrels[i];
+    var image=weaponProto.barrelImages[fighter.player];
+    this.drawImageTo(image,{"x":barrel.x*fighter.sizeRatio,"y":(barrel.y-image.height/2)*fighter.sizeRatio},fighter.sizeRatio);
+  }
+  this.drawImageTo(weaponProto.images[fighter.player],{"x":0,"y":0},fighter.sizeRatio);
+  this.context.restore();
 }
