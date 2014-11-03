@@ -139,6 +139,88 @@ RomboFight=function(input)
   //And some space for the players
   this.fighters=[];
   this.controls=[];
+  
+  //Some settings here
+  this.weaponSlots=[
+    {"x":50,"y":0},
+    {"x":-50,"y":0},
+    {"x":0,"y":110},
+    {"x":0,"y":0}
+  ];
+  this.weapons={
+    "shield":
+    {
+      "barrels":[],
+      "images":[
+        this.loadImage("game/images/shieldgen_g.png"),
+        this.loadImage("game/images/shieldgen_y.png"),
+        this.loadImage("game/images/shieldgen_w.png"),
+        this.loadImage("game/images/shieldgen_b.png"),
+        this.loadImage("game/images/shieldgen_e.png"),
+        this.loadImage("game/images/shieldgen_r.png")
+      ],
+    },
+    "bumper":
+    {
+      "barrels":[],
+      "images":[
+        this.loadImage("game/images/bumpergen_g.png"),
+        this.loadImage("game/images/bumpergen_y.png"),
+        this.loadImage("game/images/bumpergen_w.png"),
+        this.loadImage("game/images/bumpergen_b.png"),
+        this.loadImage("game/images/bumpergen_e.png"),
+        this.loadImage("game/images/bumpergen_r.png")
+      ],
+    },
+    "mine":
+    {
+      "barrels":[],
+      "images":[
+        this.loadImage("game/images/minegen_g.png"),
+        this.loadImage("game/images/minegen_y.png"),
+        this.loadImage("game/images/minegen_w.png"),
+        this.loadImage("game/images/minegen_b.png"),
+        this.loadImage("game/images/minegen_e.png"),
+        this.loadImage("game/images/minegen_r.png")
+      ],
+    },
+    "shieldtrail":
+    {
+      "barrels":[],
+      "images":[
+        this.loadImage("game/images/shieldtrail_g.png"),
+        this.loadImage("game/images/shieldtrail_y.png"),
+        this.loadImage("game/images/shieldtrail_w.png"),
+        this.loadImage("game/images/shieldtrail_b.png"),
+        this.loadImage("game/images/shieldtrail_e.png"),
+        this.loadImage("game/images/shieldtrail_r.png")
+      ],
+    },
+    "flametrail":
+    {
+      "barrels":[],
+      "images":[
+        this.loadImage("game/images/flametrail_g.png"),
+        this.loadImage("game/images/flametrail_y.png"),
+        this.loadImage("game/images/flametrail_w.png"),
+        this.loadImage("game/images/flametrail_b.png"),
+        this.loadImage("game/images/flametrail_e.png"),
+        this.loadImage("game/images/flametrail_r.png")
+      ],
+    },
+    "speedtrail":
+    {
+      "barrels":[],
+      "images":[
+        this.loadImage("game/images/speedtrail_g.png"),
+        this.loadImage("game/images/speedtrail_y.png"),
+        this.loadImage("game/images/speedtrail_w.png"),
+        this.loadImage("game/images/speedtrail_b.png"),
+        this.loadImage("game/images/speedtrail_e.png"),
+        this.loadImage("game/images/speedtrail_r.png")
+      ],
+    }
+  };
 }
 //Inheritance
 RomboFight.prototype=RomboEngine.prototype;
@@ -259,6 +341,10 @@ RomboFight.prototype.drawFighter=function(fighter)
   this.drawImageTo(this.playerImages.base[fighter.player],fighter.pos,fighter.sizeRatio,fighter.health);
   this.drawImageTo(this.playerImages.fighter[fighter.player],fighter.pos,fighter.sizeRatio);
   this.drawImageTo(this.images.heat,fighter.pos,fighter.sizeRatio,fighter.heat);
+  for(var i=0;i<fighter.weapons.length;i++)
+  {
+    this.drawWeapon(fighter,fighter.weapons[i]);
+  }
 }
 
 //But they will respect this function immediately when we turn it off
@@ -320,4 +406,27 @@ RomboFight.prototype.takeControl=function(fighter,input)
     "fighter":fighter,
     "input":input
   })
+}
+
+//But we can simply do this
+RomboFight.prototype.addWeapon=function(fighter,type,slot)
+{
+  fighter.weapons.push({
+    "type":type,
+    "slot":slot,
+    "cooldown":1,
+    "recoil":0,
+  });
+}
+
+//And scare them away
+RomboFight.prototype.drawWeapon=function(fighter,weapon)
+{
+  var weaponProto=this.weapons[weapon.type];
+  if(weaponProto.barrels.length)
+  {
+    //Draw barrels here
+  }
+  var point={"x":fighter.pos.x+this.weaponSlots[weapon.slot].x*fighter.sizeRatio,"y":fighter.pos.y+this.weaponSlots[weapon.slot].y*fighter.sizeRatio};
+  this.drawImageTo(weaponProto.images[fighter.player],point,fighter.sizeRatio);
 }
