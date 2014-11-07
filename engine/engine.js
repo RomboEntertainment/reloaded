@@ -1270,6 +1270,13 @@ RomboEngine.prototype.stepSelection=function(player,dir)
   
   //There was a real one-day gap cutted out. Anyway, back to coding.
   
+  //Little bit of debug here. If menu isn't created by our algorithm, we can't move anything within.
+  if(!this.isMenuCreated())
+  {
+    return false; //So we give it back to the sender
+    //window.close(); //No, rage quit is not allowed.
+  }
+  
   //0-up, 1-down, 2-left, 3-right //Wow. That was actually helpful. Maybe I'll delete it someday.
   var selection=game.getSelectionOf(player);
   var pos=selection.selected.pos;
@@ -1322,6 +1329,8 @@ RomboEngine.prototype.stepSelection=function(player,dir)
     }
   }
   this.moveSelection(nextSelected,player);
+  
+  return true; //WE DID IT WE DID IT WE DID IT
 }
 
 //Just kidding, another utility function
