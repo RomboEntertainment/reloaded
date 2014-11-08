@@ -139,6 +139,7 @@ RomboFight=function(input)
   //And some space for the players
   this.fighters=[];
   this.controls=[];
+  this.missiles=[]; //Pretty nice pattern here... too nice it caused OCD
   
   //Some settings here
   this.weaponSlots=[
@@ -159,12 +160,13 @@ RomboFight=function(input)
     //Primary or secondary
     "simplegun":
     {
+      "freedomPerMinute":3000,
       "barrels":[
         {
           "x":0,
           "y":7.5,
           "recoilPerShot":0.25,
-          "maxRecoil":0.2,
+          "maxRecoil":0.1,
           "recoilDampener":0.1,
           "shotPower":50,
           "shotDamage":64
@@ -182,13 +184,14 @@ RomboFight=function(input)
     },
     "doublegun":
     {
+      "freedomPerMinute":3000,
       "barrels":[
         {
           "x":-10,
           "y":7.5,
           "recoilPerShot":0.25,
-          "maxRecoil":0.2,
-          "recoilDampener":0.1,
+          "maxRecoil":20,
+          "recoilDampener":0.05,
           "shotPower":50,
           "shotDamage":64
         },
@@ -196,8 +199,8 @@ RomboFight=function(input)
           "x":10,
           "y":7.5,
           "recoilPerShot":0.25,
-          "maxRecoil":0.2,
-          "recoilDampener":0.1,
+          "maxRecoil":20,
+          "recoilDampener":0.05,
           "shotPower":50,
           "shotDamage":64
         }
@@ -316,6 +319,10 @@ RomboFight.prototype.gameTick=function()
     for(var i=0;i<this.fighters.length;i++)
     {
       this.moveFighter(this.fighters[i]);
+      for(j=0;j<this.fighters[i].weapons.length;j++)
+      {
+        this.coolWeapon(this.fighters[i].weapons[j]);
+      }
     }
   }
 }
@@ -481,7 +488,8 @@ RomboFight.prototype.addWeapon=function(fighter,type,slot)
     "type":type,
     "slot":slot,
     "cooldown":1,
-    "recoil":0,
+    "recoil":Array.apply(null, new Array(this.weapons[type].barrels.length)).map(Number.prototype.valueOf,0), //Tomorrow I will figure out how does that shit work, but today it's enough for me
+    "barrelID":0
   });
 }
 
@@ -505,8 +513,50 @@ RomboFight.prototype.drawWeapon=function(fighter,weapon)
   {
     var barrel=weaponProto.barrels[i];
     var image=weaponProto.barrelImages[fighter.player];
-    this.drawImageTo(image,{"x":barrel.x*fighter.sizeRatio,"y":(barrel.y-image.height/2)*fighter.sizeRatio},fighter.sizeRatio);
+    this.drawImageTo(image,{"x":barrel.x*fighter.sizeRatio,"y":(barrel.y-image.height/2+weapon.recoil[i]*barrel.maxRecoil*(fighter.jedi ? 1 : -1))*fighter.sizeRatio},fighter.sizeRatio);
   }
   this.drawImageTo(weaponProto.images[fighter.player],{"x":0,"y":0},fighter.sizeRatio);
   this.context.restore();
+}
+
+//Stop. This is getting serious.
+RomboFight.prototype.shootWeapon=function(fighter,weapon)
+{
+  var weaponProto=this.weapons[weapon.type];
+  var point={"x":fighter.pos.x+this.weaponSlots[weapon.slot].x*fighter.sizeRatio,"y":fighter.pos.y+this.weaponSlots[weapon.slot].y*fighter.sizeRatio};
+  var barrel=weaponProto.barrels[weapon.barrelID];
+  var image=weaponProto.barrelImages[fighter.player];
+  var recoil=weapon.recoil[weapon.barrelID];
+  if(weapon.cooldown<=0 && recoil+barrel.recoilPerShot<=1)
+  {
+    this.missiles.push({
+      "pos":{"x":point.x+barrel.x*fighter.sizeRatio,"y":point.y+(barrel.y+image.height*(fighter.jedi ? -0.5 : 0.5))*fighter.sizeRatio},
+      "speed":{"x":0,"y":barrel.shotPower*(fighter.jedi ? -1 : 1)},
+      "trail":[],
+      "sender":fighter,
+      "damage":barrel.shotDamage
+    });
+    weapon.cooldown+=1;
+    weapon.recoil[weapon.barrelID]+=barrel.recoilPerShot;
+    weapon.barrelID++;
+    if(weapon.barrelID>=weaponProto.barrels.length)
+    {
+      weapon.barrelID=0;
+    }
+  }
+}
+
+//Calm the F_WORD down
+RomboFight.prototype.coolWeapon=function(weapon)
+{
+  var weaponProto=this.weapons[weapon.type];
+  var cooldown=this.interval*0.001*(weaponProto.freedomPerMinute/60);
+  if(weapon.cooldown>0)
+  {
+    weapon.cooldown-=cooldown;
+  }
+  for(var i=0;i<weaponProto.barrels.length;i++)
+  {
+    weapon.recoil[i]=Math.max(0,weapon.recoil[i]-weaponProto.barrels[i].recoilDampener);
+  }
 }
