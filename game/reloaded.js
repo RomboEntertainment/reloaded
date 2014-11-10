@@ -173,6 +173,7 @@ RomboFight=function(input)
           "trailVanish":0.05
         }
       ],
+      "heat":0.05,
       "images":[
         this.loadImage("game/images/simplegun_g.png"),
         this.loadImage("game/images/simplegun_y.png"),
@@ -208,6 +209,7 @@ RomboFight=function(input)
           "trailVanish":0.05
         }
       ],
+      "heat":0.05,
       "images":[
         this.loadImage("game/images/doublegun_g.png"),
         this.loadImage("game/images/doublegun_y.png"),
@@ -222,6 +224,7 @@ RomboFight=function(input)
     "shield":
     {
       "barrels":[],
+      "heat":0.05,
       "images":[
         this.loadImage("game/images/shieldgen_g.png"),
         this.loadImage("game/images/shieldgen_y.png"),
@@ -234,6 +237,7 @@ RomboFight=function(input)
     "bumper":
     {
       "barrels":[],
+      "heat":0.05,
       "images":[
         this.loadImage("game/images/bumpergen_g.png"),
         this.loadImage("game/images/bumpergen_y.png"),
@@ -246,6 +250,7 @@ RomboFight=function(input)
     "mine":
     {
       "barrels":[],
+      "heat":0.05,
       "images":[
         this.loadImage("game/images/minegen_g.png"),
         this.loadImage("game/images/minegen_y.png"),
@@ -258,6 +263,7 @@ RomboFight=function(input)
     "shieldtrail":
     {
       "barrels":[],
+      "heat":0.05,
       "images":[
         this.loadImage("game/images/shieldtrail_g.png"),
         this.loadImage("game/images/shieldtrail_y.png"),
@@ -270,6 +276,7 @@ RomboFight=function(input)
     "flametrail":
     {
       "barrels":[],
+      "heat":0.05,
       "images":[
         this.loadImage("game/images/flametrail_g.png"),
         this.loadImage("game/images/flametrail_y.png"),
@@ -282,6 +289,7 @@ RomboFight=function(input)
     "speedtrail":
     {
       "barrels":[],
+      "heat":0.05,
       "images":[
         this.loadImage("game/images/speedtrail_g.png"),
         this.loadImage("game/images/speedtrail_y.png"),
@@ -369,6 +377,7 @@ RomboFight.prototype.spawnFighter=function(fighterdata)
     "effects":[],
     "player":fighterdata.player,
     "weapons":[],
+    "weaponsToFire":[],
     "jedi":(fighterdata.jedi!==undefined) ? fighterdata.jedi : true //This specifies the side it'll fight on if you don't understand for some reason
   })
 }
@@ -416,6 +425,19 @@ RomboFight.prototype.moveFighter=function(fighter)
     fighter.pos.y=this.canvas.height-fighter.size.y/2;
     fighter.speed.y=-fighter.speed.y/2;
   }
+  
+  if(fighter.heat>0)
+  {
+    fighter.heat-=0.01;
+  }
+  for(var key in fighter.weaponsToFire)
+  {
+    var weaponProto=this.weapons[fighter.weaponsToFire[key].type];
+    if(fighter.heat+weaponProto.heat<=1)
+    {
+      this.shootWeapon(fighter,fighter.weaponsToFire[key]);
+    }
+  }
 }
 
 //False. You will need this to see the previous function.
@@ -454,6 +476,10 @@ RomboFight.prototype.useControl=function(control)
     {
       control.dir.x=+1;
     }
+    control.primary=control.input.pressed.indexOf(control.input.remap[0])>-1;
+    control.secondary=control.input.pressed.indexOf(control.input.remap[1])>-1;
+    control.support=control.input.pressed.indexOf(control.input.remap[2])>-1;
+    control.ultra=control.input.pressed.indexOf(control.input.remap[3])>-1;
   }
   else if(control.input.type=="keyboard")
   {
@@ -476,6 +502,39 @@ RomboFight.prototype.useControl=function(control)
   
   control.fighter.speed.x+=25*control.dir.x;
   control.fighter.speed.y+=25*control.dir.y;
+  
+  control.fighter.weaponsToFire=[];
+  for(var key in control.fighter.weapons)
+  {
+    var weapon=control.fighter.weapons[key];
+    switch(weapon.slot)
+    {
+      case 0:
+        if(control.primary)
+        {
+          control.fighter.weaponsToFire.push(weapon);
+        }
+        break;
+      case 1:
+        if(control.secondary)
+        {
+          control.fighter.weaponsToFire.push(weapon);
+        }
+        break;
+      case 2:
+        if(control.support)
+        {
+          control.fighter.weaponsToFire.push(weapon);
+        }
+        break;
+      case 3:
+        if(control.ultra)
+        {
+          control.fighter.weaponsToFire.push(weapon);
+        }
+        break;
+    }
+  }
 }
 
 //And ask for this
@@ -535,28 +594,37 @@ RomboFight.prototype.drawWeapon=function(fighter,weapon)
 RomboFight.prototype.shootWeapon=function(fighter,weapon)
 {
   var weaponProto=this.weapons[weapon.type];
-  var point={"x":fighter.pos.x+this.weaponSlots[weapon.slot].x*fighter.sizeRatio*(fighter.jedi ? 1 : -1),"y":fighter.pos.y+this.weaponSlots[weapon.slot].y*fighter.sizeRatio*(fighter.jedi ? 1 : -1)};
-  var barrel=weaponProto.barrels[weapon.barrelID];
-  var image=weaponProto.barrelImages[fighter.player];
-  var recoil=weapon.recoil[weapon.barrelID];
-  if(weapon.cooldown<=0 && recoil+barrel.recoilPerShot<=1)
+  var shotSuccessful=false;
+  if(weaponProto.barrels.length)
   {
-    this.missiles.push({
-      "pos":{"x":point.x+barrel.x*fighter.sizeRatio*(fighter.jedi ? 1 : -1),"y":point.y+(barrel.y+image.height*(fighter.jedi ? -0.5 : 0.5))*fighter.sizeRatio},
-      "speed":{"x":fighter.speed.x*0.25,"y":fighter.speed.y*0.25+barrel.shotPower*(fighter.jedi ? -1 : 1)},
-      "trail":[],
-      "sender":fighter,
-      "damage":barrel.shotDamage,
-      "active":true,
-      "trailVanish":barrel.trailVanish
-    });
-    weapon.cooldown+=1;
-    weapon.recoil[weapon.barrelID]+=barrel.recoilPerShot;
-    weapon.barrelID++;
-    if(weapon.barrelID>=weaponProto.barrels.length)
+    var point={"x":fighter.pos.x+this.weaponSlots[weapon.slot].x*fighter.sizeRatio*(fighter.jedi ? 1 : -1),"y":fighter.pos.y+this.weaponSlots[weapon.slot].y*fighter.sizeRatio*(fighter.jedi ? 1 : -1)};
+    var barrel=weaponProto.barrels[weapon.barrelID];
+    var image=weaponProto.barrelImages[fighter.player];
+    var recoil=weapon.recoil[weapon.barrelID];
+    if(weapon.cooldown<=0 && recoil+barrel.recoilPerShot<=1)
     {
-      weapon.barrelID=0;
+      this.missiles.push({
+        "pos":{"x":point.x+barrel.x*fighter.sizeRatio*(fighter.jedi ? 1 : -1),"y":point.y+(barrel.y+image.height*(fighter.jedi ? -0.5 : 0.5))*fighter.sizeRatio},
+        "speed":{"x":fighter.speed.x*0.25,"y":fighter.speed.y*0.25+barrel.shotPower*(fighter.jedi ? -1 : 1)},
+        "trail":[],
+        "sender":fighter,
+        "damage":barrel.shotDamage,
+        "active":true,
+        "trailVanish":barrel.trailVanish
+      });
+      weapon.cooldown+=1;
+      weapon.recoil[weapon.barrelID]+=barrel.recoilPerShot;
+      weapon.barrelID++;
+      if(weapon.barrelID>=weaponProto.barrels.length)
+      {
+        weapon.barrelID=0;
+      }
+      shotSuccessful=true;
     }
+  }
+  if(shotSuccessful)
+  {
+    fighter.heat+=weaponProto.heat;
   }
 }
 
