@@ -100,6 +100,11 @@ RomboEngine=function(input)
       "image": this.loadImage("engine/images/grey.png")
     }
   ];
+  this.enemyColor={ //Universal enemy color, you cannot use that one with players
+    "color":"#ff0000",
+    "name":"Red",
+    "image":this.loadImage("engine/images/red.png")
+  }
   
   //Donkey function. Ha-ha.
   window.addEventListener('keydown',function(event){
@@ -472,6 +477,14 @@ RomboEngine=function(input)
   
   //First step of anti-aliasing
   this.context.imageSmoothingEnabled=true
+  
+  //Optimization code for anti-aliasing
+  this.antialiasStorage={};
+  
+  //Options table with unortodox implementation, making it easier to extend
+  this.options={};
+  this.options.antialiasLevel=2;
+  this.options.enableAntialiasStorage=true;
   
   //Finally set up the draw loop
   this.requestFrame=true;
@@ -1733,38 +1746,125 @@ RomboEngine.prototype.drawImageTo=function(image,point,size,opacity)
   var w=image.width*size;
   var h=image.height*size;
   
-  //Anti-aliasing by stepping down the image
-  //Technically this is mipmapping, not anti-aliasing, but nevermind
-  var tw=image.width;
-  var th=image.height;
-  this.technicalCanvas.width=tw;
-  this.technicalCanvas.height=th;
-  this.secondaryTechnicalCanvas.width=tw;
-  this.secondaryTechnicalCanvas.height=th;
-  var imageDone=false;
-  var firstIteration=true;
-  while(!imageDone)
+  //Anti-alias storage
+  if(this.options.enableAntialiasStorage && ('_'+size+'/'+image.src in this.antialiasStorage))
   {
-    this.technicalContext.drawImage((firstIteration ? image : this.secondaryTechnicalCanvas),0,0,tw,th);
-    firstIteration=false;
-    if(w*2>tw)
+    var outImage=this.antialiasStorage['_'+size+'/'+image.src];
+    var tw=outImage.width;
+    var th=outImage.height;
+  }
+  else
+  {
+    //Anti-aliasing by stepping down the image
+    //Technically this is mipmapping, not anti-aliasing, but nevermind
+    var tw=image.width;
+    var th=image.height;
+    this.technicalCanvas.width=tw;
+    this.technicalCanvas.height=th;
+    this.secondaryTechnicalCanvas.width=tw;
+    this.secondaryTechnicalCanvas.height=th;
+    var canvas1=this.technicalCanvas;
+    var canvas2=this.secondaryTechnicalCanvas;
+    var context1=this.technicalContext;
+    var context2=this.secondaryTechnicalContext;
+    var imageDone=false;
+    var firstIteration=true;
+    var optOut=this.options.antialiasLevel<=0;
+    var outImage=this.options.antialiasLevel ? null : image;
+    while(!imageDone && !optOut)
     {
-      imageDone=true;
-    }
-    else
-    {
-      this.secondaryTechnicalCanvas.width=tw;
-      this.secondaryTechnicalCanvas.height=th;
-      this.secondaryTechnicalContext.drawImage(this.technicalCanvas,0,0,tw,th,0,0,tw,th);
-      this.technicalContext.clearRect(0,0,tw,th);
-      tw=tw/2;
-      th=th/2;
+      var cw=tw*(firstIteration ? 1 : 2);
+      var ch=th*(firstIteration ? 1 : 2);
+      context1.drawImage((firstIteration ? image : canvas2),0,0,cw,ch,0,0,tw,th);
+      optOut=this.options.antialiasLevel<2 && !firstIteration;
+      imageDone=w*2>tw;
+      firstIteration=false;
+      if(imageDone || optOut)
+      {
+        outImage=canvas1;
+        var tempCanvas=document.createElement('canvas');
+        var tempContext=tempCanvas.getContext('2d');
+        this.antialiasStorage['_'+size+'/'+image.src]=tempCanvas;
+        tempCanvas.width=tw;
+        tempCanvas.height=th;
+        tempContext.drawImage(canvas1,0,0,tw,th,0,0,tw,th);
+      }
+      else
+      {
+        context2.clearRect(0,0,tw,th);
+        var tmp;
+        tmp=context1;
+        context1=context2;
+        context2=tmp;
+        tmp=canvas1;
+        canvas1=canvas2;
+        canvas2=tmp;
+        tw=tw/2;
+        th=th/2;
+      }
     }
   }
   
   this.context.globalAlpha=opacity;
-  this.context.drawImage(this.technicalCanvas,0,0,tw,th,point.x-w/2,point.y-h/2,w,h);
+  this.context.drawImage(outImage,0,0,tw,th,point.x-w/2,point.y-h/2,w,h);
   this.context.globalAlpha=1;
+}
+
+//And another utility function
+RomboEngine.prototype.multiplyColor=function(color,opacity)
+{
+  color=this.convertColor(color);
+  var addValue=(opacity>1) ? (opacity-1)*255 : 0;
+  for(var key in "rgb")
+  {
+    var component=color["rgb"[key]];
+    color["rgb"[key]]=Math.floor(Math.min(component+addValue,255));
+  }
+  color.a=Math.min(opacity,1);
+  return "rgba("+color.r+","+color.g+","+color.b+","+color.a.toFixed(6)+")";
+}
+
+//Deja vu
+RomboEngine.prototype.convertColor=function(color)
+{
+  if(typeof color=="string")
+  {
+    if(color.indexOf("#")==0)
+    {
+      color=hexToRgb(color);
+      color.a=1;
+    }
+    else if(color.indexOf("rgb")>-1)
+    {
+      console.log('Still alive');
+      color=color.replace(/rgb\(/g,'');
+      color=color.replace(/rgba\(/g,'');
+      color=color.replace(/\)/g,'');
+      color=color.replace(/ /g,'');
+      color=color.split(',');
+      color=color.length>3
+        ? {"r":parseFloat(color[0]),"g":parseFloat(color[1]),"b":parseFloat(color[2]),"a":parseFloat(color[3])}
+        : {"r":parseFloat(color[0]),"g":parseFloat(color[1]),"b":parseFloat(color[2]),"a":1};
+    }
+    else
+    {
+      color={"r":0,"g":0,"b":0,"a":0};
+    }
+  }
+  return color;
+}
+
+//Who said they're not awesome?
+RomboEngine.prototype.getColorOf=function(player)
+{
+  if(player<this.colors.length)
+  {
+    return this.colors[player];
+  }
+  else
+  {
+    return this.enemyColor.color;
+  }
 }
 
 //External code snipetts starts here
@@ -1814,5 +1914,21 @@ window.requestAnimFrame = (function(){
             window.setTimeout(callback, 1000 / 60);
           };
 })();
+
+//Hex color converter by Tim Down. Thank you all, guys, you're awesome.
+function hexToRgb(hex) {
+    // Expand shorthand form (e.g. "03F") to full form (e.g. "0033FF")
+    var shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+    hex = hex.replace(shorthandRegex, function(m, r, g, b) {
+        return r + r + g + g + b + b;
+    });
+
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : null;
+}
 
 //Why am I commenting this? I have a little bit too much freetime...

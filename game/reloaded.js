@@ -169,7 +169,8 @@ RomboFight=function(input)
           "maxRecoil":0.1,
           "recoilDampener":0.1,
           "shotPower":50,
-          "shotDamage":64
+          "shotDamage":64,
+          "trailVanish":0.05
         }
       ],
       "images":[
@@ -193,7 +194,8 @@ RomboFight=function(input)
           "maxRecoil":20,
           "recoilDampener":0.05,
           "shotPower":50,
-          "shotDamage":64
+          "shotDamage":64,
+          "trailVanish":0.05
         },
         {
           "x":10,
@@ -202,7 +204,8 @@ RomboFight=function(input)
           "maxRecoil":20,
           "recoilDampener":0.05,
           "shotPower":50,
-          "shotDamage":64
+          "shotDamage":64,
+          "trailVanish":0.05
         }
       ],
       "images":[
@@ -324,6 +327,10 @@ RomboFight.prototype.gameTick=function()
         this.coolWeapon(this.fighters[i].weapons[j]);
       }
     }
+    for(var i=0;i<this.missiles.length;i++)
+    {
+      this.moveMissile(this.missiles[i]);
+    }
   }
 }
 
@@ -341,6 +348,10 @@ RomboFight.prototype.gameDraw=function()
     for(var i=0;i<this.fighters.length;i++)
     {
       this.drawFighter(this.fighters[i]);
+    }
+    for(var i=0;i<this.missiles.length;i++)
+    {
+      this.drawMissile(this.missiles[i]);
     }
   }
 }
@@ -489,6 +500,7 @@ RomboFight.prototype.addWeapon=function(fighter,type,slot)
     "slot":slot,
     "cooldown":1,
     "recoil":Array.apply(null, new Array(this.weapons[type].barrels.length)).map(Number.prototype.valueOf,0), //Tomorrow I will figure out how does that shit work, but today it's enough for me
+    //Okay, I looked it up in the docs. Nice lazy structure, I'm glad I'm not the only one...
     "barrelID":0
   });
 }
@@ -523,18 +535,20 @@ RomboFight.prototype.drawWeapon=function(fighter,weapon)
 RomboFight.prototype.shootWeapon=function(fighter,weapon)
 {
   var weaponProto=this.weapons[weapon.type];
-  var point={"x":fighter.pos.x+this.weaponSlots[weapon.slot].x*fighter.sizeRatio,"y":fighter.pos.y+this.weaponSlots[weapon.slot].y*fighter.sizeRatio};
+  var point={"x":fighter.pos.x+this.weaponSlots[weapon.slot].x*fighter.sizeRatio*(fighter.jedi ? 1 : -1),"y":fighter.pos.y+this.weaponSlots[weapon.slot].y*fighter.sizeRatio*(fighter.jedi ? 1 : -1)};
   var barrel=weaponProto.barrels[weapon.barrelID];
   var image=weaponProto.barrelImages[fighter.player];
   var recoil=weapon.recoil[weapon.barrelID];
   if(weapon.cooldown<=0 && recoil+barrel.recoilPerShot<=1)
   {
     this.missiles.push({
-      "pos":{"x":point.x+barrel.x*fighter.sizeRatio,"y":point.y+(barrel.y+image.height*(fighter.jedi ? -0.5 : 0.5))*fighter.sizeRatio},
-      "speed":{"x":0,"y":barrel.shotPower*(fighter.jedi ? -1 : 1)},
+      "pos":{"x":point.x+barrel.x*fighter.sizeRatio*(fighter.jedi ? 1 : -1),"y":point.y+(barrel.y+image.height*(fighter.jedi ? -0.5 : 0.5))*fighter.sizeRatio},
+      "speed":{"x":fighter.speed.x*0.25,"y":fighter.speed.y*0.25+barrel.shotPower*(fighter.jedi ? -1 : 1)},
       "trail":[],
       "sender":fighter,
-      "damage":barrel.shotDamage
+      "damage":barrel.shotDamage,
+      "active":true,
+      "trailVanish":barrel.trailVanish
     });
     weapon.cooldown+=1;
     weapon.recoil[weapon.barrelID]+=barrel.recoilPerShot;
@@ -558,5 +572,83 @@ RomboFight.prototype.coolWeapon=function(weapon)
   for(var i=0;i<weaponProto.barrels.length;i++)
   {
     weapon.recoil[i]=Math.max(0,weapon.recoil[i]-weaponProto.barrels[i].recoilDampener);
+  }
+}
+
+//That's not how it works. That's not how any of this works.
+RomboFight.prototype.moveMissile=function(missile)
+{
+  if(missile.active)
+  {
+    var pos=this.cloneObject(missile.pos);
+    missile.speed.x+=Math.random()*1-0.5;
+    missile.speed.y+=Math.random()*1-0.5;
+    missile.pos.x+=missile.speed.x;
+    missile.pos.y+=missile.speed.y;
+    if(!this.inField(missile.pos))
+    {
+      missile.active=false;
+    }
+    missile.trail.push({
+      "p1":this.cloneObject(missile.pos),
+      "p2":pos,
+      "o1":2+missile.trailVanish,
+      "o2":2
+    });
+  }
+  var removables=[];
+  for(var i=0;i<missile.trail.length;i++)
+  {
+    missile.trail[i].o1-=missile.trailVanish;
+    missile.trail[i].o2-=missile.trailVanish;
+    if(missile.trail[i].o1<=0 && missile.trail[i].o2<=0)
+    {
+      removables.push(i);
+    }
+  }
+  removables.sort(function(a, b){return b-a});
+  for(var i in removables)
+  {
+    missile.trail.splice(removables[i],1);
+  }
+  //missile.trail.splice(removeFrom,Math.max(missile.trail.length-removeFrom,0));
+}
+
+//Write a utility function instead of shooting up everyone
+RomboFight.prototype.inField=function(point)
+{
+  return point.x>=0 && point.y>=0 && point.x<=this.canvas.width && point.y<=this.canvas.height;
+}
+
+//And draw some missiles right there... wait what?
+RomboFight.prototype.drawMissile=function(missile)
+{
+  for(var i=0;i<missile.trail.length;i++)
+  {
+    var trail=missile.trail[i];
+    this.context.beginPath();
+    this.context.moveTo(trail.p1.x,trail.p1.y);
+    this.context.lineTo(trail.p2.x,trail.p2.y);
+    var grad=this.context.createLinearGradient(trail.p1.x,trail.p1.y,trail.p2.x,trail.p2.y);
+    grad.addColorStop(0,this.multiplyColor(this.getColorOf(missile.sender.player),Math.max(trail.o1-1,0)));
+    grad.addColorStop(1,this.multiplyColor(this.getColorOf(missile.sender.player),Math.max(trail.o2-1,0)));
+    this.context.strokeStyle=grad;
+    this.context.lineWidth=5;
+    this.context.lineCap='flat';
+    this.context.stroke();
+  }
+  for(var i=0;i<missile.trail.length;i++)
+  {
+    var trail=missile.trail[i];
+    this.context.beginPath();
+    this.context.moveTo(trail.p1.x,trail.p1.y);
+    this.context.lineTo(trail.p2.x,trail.p2.y);
+    var grad=this.context.createLinearGradient(trail.p1.x,trail.p1.y,trail.p2.x,trail.p2.y);
+    grad.addColorStop(0,this.multiplyColor(this.getColorOf(missile.sender.player),trail.o1));
+    grad.addColorStop(1,this.multiplyColor(this.getColorOf(missile.sender.player),trail.o2));
+    this.context.strokeStyle=grad;
+    this.context.lineWidth=2;
+    this.context.lineCap='flat';
+    this.context.stroke();
   }
 }
