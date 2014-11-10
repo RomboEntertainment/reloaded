@@ -160,20 +160,20 @@ RomboFight=function(input)
     //Primary or secondary
     "simplegun":
     {
-      "freedomPerMinute":3000,
+      "freedomPerMinute":1500,
       "barrels":[
         {
           "x":0,
           "y":7.5,
           "recoilPerShot":0.25,
-          "maxRecoil":0.1,
-          "recoilDampener":0.1,
+          "maxRecoil":20,
+          "recoilDampener":0.05,
           "shotPower":50,
-          "shotDamage":64,
+          "shotDamage":128,
           "trailVanish":0.05
         }
       ],
-      "heat":0.05,
+      "heat":0.1,
       "images":[
         this.loadImage("game/images/simplegun_g.png"),
         this.loadImage("game/images/simplegun_y.png"),
@@ -428,7 +428,7 @@ RomboFight.prototype.moveFighter=function(fighter)
   
   if(fighter.heat>0)
   {
-    fighter.heat-=0.01;
+    fighter.heat-=0.015;
   }
   for(var key in fighter.weaponsToFire)
   {
@@ -604,7 +604,7 @@ RomboFight.prototype.shootWeapon=function(fighter,weapon)
     if(weapon.cooldown<=0 && recoil+barrel.recoilPerShot<=1)
     {
       this.missiles.push({
-        "pos":{"x":point.x+barrel.x*fighter.sizeRatio*(fighter.jedi ? 1 : -1),"y":point.y+(barrel.y+image.height*(fighter.jedi ? -0.5 : 0.5))*fighter.sizeRatio},
+        "pos":{"x":point.x+barrel.x*fighter.sizeRatio*(fighter.jedi ? 1 : -1),"y":point.y+(barrel.y+image.height*(fighter.jedi ? -1 : 1)+recoil*barrel.maxRecoil*(fighter.jedi ? 1 : -1))*fighter.sizeRatio},
         "speed":{"x":fighter.speed.x*0.25,"y":fighter.speed.y*0.25+barrel.shotPower*(fighter.jedi ? -1 : 1)},
         "trail":[],
         "sender":fighter,

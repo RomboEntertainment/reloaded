@@ -1814,7 +1814,7 @@ RomboEngine.prototype.drawImageTo=function(image,point,size,opacity)
 RomboEngine.prototype.multiplyColor=function(color,opacity)
 {
   color=this.convertColor(color);
-  var addValue=(opacity>1) ? (opacity-1)*255 : 0;
+  var addValue=Math.max((opacity-1)*255,0);
   for(var key in "rgb")
   {
     var component=color["rgb"[key]];
@@ -1832,6 +1832,11 @@ RomboEngine.prototype.convertColor=function(color)
     if(color.indexOf("#")==0)
     {
       color=hexToRgb(color);
+      color.a=1;
+    }
+    else if(color.length==6)
+    {
+      color=hexToRgb("#"+color);
       color.a=1;
     }
     else if(color.indexOf("rgb")>-1)
