@@ -491,6 +491,10 @@ RomboFight.prototype.useControl=function(control)
     y+=(control.input.pressed.indexOf(40)>-1) ? 1 : 0;
     control.dir.x=x;
     control.dir.y=y;
+    control.primary=control.input.pressed.indexOf(32)>-1;
+    control.secondary=control.input.pressed.indexOf(81)>-1;
+    control.support=control.input.pressed.indexOf(87)>-1;
+    control.ultra=control.input.pressed.indexOf(69)>-1;
   }
   
   var fullspeed=Math.sqrt(Math.pow(control.dir.x,2),Math.pow(control.dir.y,2));
