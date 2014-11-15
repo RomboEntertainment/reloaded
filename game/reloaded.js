@@ -115,7 +115,9 @@ RomboFight=function(input)
   //Load the images
   this.images={
     "base":this.loadImage("game/images/base.png"),
-    "heat":this.loadImage("game/images/heat.png")
+    "heat":this.loadImage("game/images/heat.png"),
+    "shield":this.loadImage("game/images/shield.png"),
+    "bumper":this.loadImage("game/images/bumper.png")
   }
   this.playerImages={
     "base":[
@@ -170,9 +172,10 @@ RomboFight=function(input)
           "recoilDampener":0.05,
           "shotPower":50,
           "shotDamage":128,
-          "trailVanish":0.05
+          "trailVanish":0.2 
         }
       ],
+      "effects":[],
       "heat":0.1,
       "images":[
         this.loadImage("game/images/simplegun_g.png"),
@@ -196,7 +199,7 @@ RomboFight=function(input)
           "recoilDampener":0.05,
           "shotPower":50,
           "shotDamage":64,
-          "trailVanish":0.05
+          "trailVanish":0.2
         },
         {
           "x":10,
@@ -206,9 +209,10 @@ RomboFight=function(input)
           "recoilDampener":0.05,
           "shotPower":50,
           "shotDamage":64,
-          "trailVanish":0.05
+          "trailVanish":0.2
         }
       ],
+      "effects":[],
       "heat":0.05,
       "images":[
         this.loadImage("game/images/doublegun_g.png"),
@@ -223,8 +227,16 @@ RomboFight=function(input)
     //Support weapons
     "shield":
     {
+      "freedomPerMinute":3000,
       "barrels":[],
-      "heat":0.05,
+      "effects":[
+        {
+          "type":"shield",
+          "strength":0.05,
+          "fallback":0.025
+        }
+      ],
+      "heat":0.025,
       "images":[
         this.loadImage("game/images/shieldgen_g.png"),
         this.loadImage("game/images/shieldgen_y.png"),
@@ -237,6 +249,13 @@ RomboFight=function(input)
     "bumper":
     {
       "barrels":[],
+      "effects":[
+        {
+          "type":"bumper",
+          "strength":0.1,
+          "fallback":0.05
+        }
+      ],
       "heat":0.05,
       "images":[
         this.loadImage("game/images/bumpergen_g.png"),
@@ -250,6 +269,7 @@ RomboFight=function(input)
     "mine":
     {
       "barrels":[],
+      "effects":[],
       "heat":0.05,
       "images":[
         this.loadImage("game/images/minegen_g.png"),
@@ -263,6 +283,7 @@ RomboFight=function(input)
     "shieldtrail":
     {
       "barrels":[],
+      "effects":[],
       "heat":0.05,
       "images":[
         this.loadImage("game/images/shieldtrail_g.png"),
@@ -276,6 +297,7 @@ RomboFight=function(input)
     "flametrail":
     {
       "barrels":[],
+      "effects":[],
       "heat":0.05,
       "images":[
         this.loadImage("game/images/flametrail_g.png"),
@@ -289,6 +311,7 @@ RomboFight=function(input)
     "speedtrail":
     {
       "barrels":[],
+      "effects":[],
       "heat":0.05,
       "images":[
         this.loadImage("game/images/speedtrail_g.png"),
@@ -300,6 +323,9 @@ RomboFight=function(input)
       ]
     }
   };
+  
+  //Some additional options
+  this.options.missileDetail=3;
 }
 //Inheritance
 RomboFight.prototype=RomboEngine.prototype;
@@ -334,17 +360,20 @@ RomboFight.prototype.gameTick=function()
       {
         this.coolWeapon(this.fighters[i].weapons[j]);
       }
+      this.removeEffects(this.fighters[i]);
     }
     for(var i=0;i<this.missiles.length;i++)
     {
       this.moveMissile(this.missiles[i]);
     }
+    this.cleanupMissiles();
   }
 }
 
 //Sorry, I wasn't right. If anything becomes slow, they blame THIS code.
 RomboFight.prototype.gameDraw=function()
 {
+  this.stats.currentDraw.linesDrawn=0;
   if(this.drawWarning)
   {
     this.context.fillStyle="#ff0000";
@@ -362,6 +391,7 @@ RomboFight.prototype.gameDraw=function()
       this.drawMissile(this.missiles[i]);
     }
   }
+  //console.log(this.stats.currentDraw.linesDrawn);
 }
 
 //But OK, let's do something less underrated
@@ -451,6 +481,7 @@ RomboFight.prototype.drawFighter=function(fighter)
   {
     this.drawWeapon(fighter,fighter.weapons[i]);
   }
+  this.drawEffects(fighter);
 }
 
 //But they will respect this function immediately when we turn it off
@@ -458,31 +489,49 @@ RomboFight.prototype.useControl=function(control)
 {
   if(control.input.type=="gamepad")
   {
-    control.dir.x=this.getGamepadByIndex(control.input.index).axes[0];
-    control.dir.y=this.getGamepadByIndex(control.input.index).axes[1];
-    if(control.input.pressed.indexOf(12)>-1 && control.input.pressed.indexOf(13)==-1)
+    if(!this.getGamepadByIndex(control.input.index)
+    || control.input.pressed.indexOf(9)>-1
+    || control.input.pressed.indexOf(10)>-1)
     {
-      control.dir.y=-1;
+      if(this.getGamepadByIndex(control.input.index))
+      {
+        this.dropOut(this.getPlayerId(control.input.color));
+      }
+      control.input.type="disabled";
     }
-    if(control.input.pressed.indexOf(13)>-1 && control.input.pressed.indexOf(12)==-1)
+    else
     {
-      control.dir.y=+1;
+      control.dir.x=this.getGamepadByIndex(control.input.index).axes[0];
+      control.dir.y=this.getGamepadByIndex(control.input.index).axes[1];
+      if(control.input.pressed.indexOf(12)>-1 && control.input.pressed.indexOf(13)==-1)
+      {
+        control.dir.y=-1;
+      }
+      if(control.input.pressed.indexOf(13)>-1 && control.input.pressed.indexOf(12)==-1)
+      {
+        control.dir.y=+1;
+      }
+      if(control.input.pressed.indexOf(14)>-1 && control.input.pressed.indexOf(15)==-1)
+      {
+        control.dir.x=-1;
+      }
+      if(control.input.pressed.indexOf(15)>-1 && control.input.pressed.indexOf(14)==-1)
+      {
+        control.dir.x=+1;
+      }
+      control.primary=control.input.pressed.indexOf(control.input.remap[0])>-1;
+      control.secondary=control.input.pressed.indexOf(control.input.remap[1])>-1;
+      control.support=control.input.pressed.indexOf(control.input.remap[2])>-1;
+      control.ultra=control.input.pressed.indexOf(control.input.remap[3])>-1;
     }
-    if(control.input.pressed.indexOf(14)>-1 && control.input.pressed.indexOf(15)==-1)
-    {
-      control.dir.x=-1;
-    }
-    if(control.input.pressed.indexOf(15)>-1 && control.input.pressed.indexOf(14)==-1)
-    {
-      control.dir.x=+1;
-    }
-    control.primary=control.input.pressed.indexOf(control.input.remap[0])>-1;
-    control.secondary=control.input.pressed.indexOf(control.input.remap[1])>-1;
-    control.support=control.input.pressed.indexOf(control.input.remap[2])>-1;
-    control.ultra=control.input.pressed.indexOf(control.input.remap[3])>-1;
   }
   else if(control.input.type=="keyboard")
   {
+    if(control.input.pressed.indexOf(27)>-1)
+    {
+      this.dropOut(this.getPlayerId(control.input.color));
+      control.input.type="disabled";
+    }
     var x=0;
     var y=0;
     x-=(control.input.pressed.indexOf(37)>-1) ? 1 : 0;
@@ -607,6 +656,7 @@ RomboFight.prototype.shootWeapon=function(fighter,weapon)
     var recoil=weapon.recoil[weapon.barrelID];
     if(weapon.cooldown<=0 && recoil+barrel.recoilPerShot<=1)
     {
+      weapon.recoil[weapon.barrelID]+=barrel.recoilPerShot;
       this.missiles.push({
         "pos":{"x":point.x+barrel.x*fighter.sizeRatio*(fighter.jedi ? 1 : -1),"y":point.y+(barrel.y+image.height*(fighter.jedi ? -1 : 1)+recoil*barrel.maxRecoil*(fighter.jedi ? 1 : -1))*fighter.sizeRatio},
         "speed":{"x":fighter.speed.x*0.25,"y":fighter.speed.y*0.25+barrel.shotPower*(fighter.jedi ? -1 : 1)},
@@ -617,7 +667,6 @@ RomboFight.prototype.shootWeapon=function(fighter,weapon)
         "trailVanish":barrel.trailVanish
       });
       weapon.cooldown+=1;
-      weapon.recoil[weapon.barrelID]+=barrel.recoilPerShot;
       weapon.barrelID++;
       if(weapon.barrelID>=weaponProto.barrels.length)
       {
@@ -625,6 +674,11 @@ RomboFight.prototype.shootWeapon=function(fighter,weapon)
       }
       shotSuccessful=true;
     }
+  }
+  for(var i in weaponProto.effects)
+  {
+    this.addEffect(fighter,weaponProto.effects[i]);
+    shotSuccessful=true;
   }
   if(shotSuccessful)
   {
@@ -661,7 +715,7 @@ RomboFight.prototype.moveMissile=function(missile)
     {
       missile.active=false;
     }
-    missile.trail.push({
+    missile.trail.unshift({
       "p1":this.cloneObject(missile.pos),
       "p2":pos,
       "o1":2+missile.trailVanish,
@@ -695,19 +749,32 @@ RomboFight.prototype.inField=function(point)
 //And draw some missiles right there... wait what?
 RomboFight.prototype.drawMissile=function(missile)
 {
-  for(var i=0;i<missile.trail.length;i++)
+  var lineWidth=5;
+  var breakMissile=(this.options.missileDetail-1)%2;
+  if(this.options.missileDetail>1)
   {
-    var trail=missile.trail[i];
-    this.context.beginPath();
-    this.context.moveTo(trail.p1.x,trail.p1.y);
-    this.context.lineTo(trail.p2.x,trail.p2.y);
-    var grad=this.context.createLinearGradient(trail.p1.x,trail.p1.y,trail.p2.x,trail.p2.y);
-    grad.addColorStop(0,this.multiplyColor(this.getColorOf(missile.sender.player),Math.max(trail.o1-1,0)));
-    grad.addColorStop(1,this.multiplyColor(this.getColorOf(missile.sender.player),Math.max(trail.o2-1,0)));
-    this.context.strokeStyle=grad;
-    this.context.lineWidth=5;
-    this.context.lineCap='flat';
-    this.context.stroke();
+    for(var i=0;i<missile.trail.length;i++)
+    {
+      var trail=missile.trail[i];
+      this.context.beginPath();
+      this.context.moveTo(trail.p1.x,trail.p1.y);
+      this.context.lineTo(trail.p2.x,trail.p2.y);
+      var grad=this.context.createLinearGradient(trail.p1.x,trail.p1.y,trail.p2.x,trail.p2.y);
+      var startOpacity=breakMissile ? Math.max(missile.trail[0].o1/missile.trail.length*(missile.trail.length-i)-1,0) : Math.max(trail.o1-1,0);
+      var endOpacity=breakMissile ? Math.max(missile.trail[0].o1/missile.trail.length*(missile.trail.length-i-1)-1,0) : Math.max(trail.o2-1,0);
+      grad.addColorStop(0,this.multiplyColor(this.getColorOf(missile.sender.player),startOpacity));
+      grad.addColorStop(1,this.multiplyColor(this.getColorOf(missile.sender.player),endOpacity));
+      this.context.strokeStyle=grad;
+      this.context.lineWidth=lineWidth;
+      this.context.lineCap='flat';
+      this.context.stroke();
+      this.stats.currentDraw.linesDrawn++;
+      if(breakMissile && i>=3)
+      {
+        break;
+      }
+    }
+    lineWidth=2;
   }
   for(var i=0;i<missile.trail.length;i++)
   {
@@ -716,11 +783,127 @@ RomboFight.prototype.drawMissile=function(missile)
     this.context.moveTo(trail.p1.x,trail.p1.y);
     this.context.lineTo(trail.p2.x,trail.p2.y);
     var grad=this.context.createLinearGradient(trail.p1.x,trail.p1.y,trail.p2.x,trail.p2.y);
-    grad.addColorStop(0,this.multiplyColor(this.getColorOf(missile.sender.player),trail.o1));
-    grad.addColorStop(1,this.multiplyColor(this.getColorOf(missile.sender.player),trail.o2));
+    var startOpacity=breakMissile ? missile.trail[0].o1/missile.trail.length*(missile.trail.length-i) : trail.o1;
+    var endOpacity=breakMissile ? missile.trail[0].o1/missile.trail.length*(missile.trail.length-i-1) : trail.o2;
+    grad.addColorStop(0,this.multiplyColor(this.getColorOf(missile.sender.player),startOpacity));
+    grad.addColorStop(1,this.multiplyColor(this.getColorOf(missile.sender.player),endOpacity));
     this.context.strokeStyle=grad;
-    this.context.lineWidth=2;
+    this.context.lineWidth=lineWidth;
     this.context.lineCap='flat';
     this.context.stroke();
+    this.stats.currentDraw.linesDrawn++;
+    if(breakMissile && i>=3)
+    {
+      break;
+    }
+  }
+}
+
+//Please, STOP THAT
+RomboFight.prototype.cleanupMissiles=function()
+{
+  var removables=[];
+  for(var i in this.missiles)
+  {
+    var missile=this.missiles[i];
+    if(!missile.trail.length)
+    {
+      removables.push(i);
+    }
+  }
+  removables.sort(function(a, b){return b-a});
+  for(var i in removables)
+  {
+    this.missiles.splice(removables[i],1);
+  }
+}
+
+//And write a utility function, as it's usual when you are angry
+RomboFight.prototype.resizeFighter=function(fighter,newsize)
+{
+  fighter.size.x*=newsize/fighter.sizeRatio;
+  fighter.size.y*=newsize/fighter.sizeRatio;
+  fighter.sizeRatio=newsize;
+}
+
+//Okay, it's time to introduce heal potions
+RomboFight.prototype.addEffect=function(fighter,effect)
+{
+  var effectFound=false;
+  for(var i in fighter.effects)
+  {
+    if(fighter.effects[i].type==effect.type && fighter.effects[i].fallback==effect.fallback)
+    {
+      fighter.effects[i].strength+=effect.strength;
+      effectFound=true;
+      break;
+    }
+  }
+  if(!effectFound)
+  {
+    fighter.effects.push(this.cloneObject(effect));
+  }
+}
+
+//Just kidding, there is no such thing as a heal potion. Yet. But this function will let you know when it's introduced.
+RomboFight.prototype.getEffect=function(fighter,type)
+{
+  var strength=0;
+  for(var i in fighter.effects)
+  {
+    if(fighter.effects[i].type==type)
+    {
+      strength+=fighter.effects[i].strength;
+    }
+  }
+  return strength;
+}
+
+//One does not simply remove an effect
+RomboFight.prototype.removeEffects=function(fighter)
+{
+  var removables=[];
+  for(var i in fighter.effects)
+  {
+    fighter.effects[i].strength-=fighter.effects[i].fallback;
+    if(fighter.effects[i].strength<=0)
+    {
+      removables.push(i);
+    }
+  }
+  removables.sort(function(a, b){return b-a});
+  for(var i in removables)
+  {
+    fighter.effects.splice(removables[i],1);
+  }
+}
+
+//This function lets you know what the hell did you just drink
+RomboFight.prototype.listEffects=function(fighter)
+{
+  var effectList=[];
+  for(var i in fighter.effects)
+  {
+    if(effectList.indexOf(fighter.effects[i].type)<0)
+    {
+      effectList.push(fighter.effects[i].type);
+    }
+  }
+  return effectList;
+}
+
+//But there is nothing to hide
+RomboFight.prototype.drawEffects=function(fighter)
+{
+  var effectList=this.listEffects(fighter);
+  for(var i in effectList)
+  {
+    var effect=this.getEffect(fighter,effectList[i]);
+    var image=[false,this.images.shield,this.images.bumper]
+      [["shield","bumper"].indexOf(effectList[i])+1]; //And finally my favorite lazy structure.
+    if(image && effect)
+    {
+      this.drawImageTo(image,fighter.pos,fighter.sizeRatio,effect);
+    }
   }
 }

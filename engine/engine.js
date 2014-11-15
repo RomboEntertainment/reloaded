@@ -480,11 +480,19 @@ RomboEngine=function(input)
   
   //Optimization code for anti-aliasing
   this.antialiasStorage={};
+  //And for color blending
+  this.backgroundColor={"r":0,"g":0,"b":0};
   
   //Options table with unortodox implementation, making it easier to extend
   this.options={};
   this.options.antialiasLevel=2;
   this.options.enableAntialiasStorage=true;
+  this.options.enableColorTransparency=true;
+  
+  //Same there
+  this.stats={};
+  this.stats.currentTick={};
+  this.stats.currentDraw={};
   
   //Finally set up the draw loop
   this.requestFrame=true;
@@ -537,6 +545,9 @@ RomboEngine.prototype.tick=function()
   
   this.rawGamepads=navigator.getGamepads();
   
+  //Clear current tick statistics
+  this.stats.currentTick={};
+  
   //Listen to the user, don't be a moron...
   //Noble. I wanted to say noble, not moron.
   this.listenInputs();
@@ -569,6 +580,9 @@ RomboEngine.prototype.draw=function()
 {
   //Clean up just to mess around again
   this.context.clearRect(0,0,this.canvas.width,this.canvas.height);
+  
+  //Clear current frame statistics
+  this.stats.currentDraw={};
   
   //Draw the background first. You know, that's why it's a background...
   if('backgroundController' in this)
@@ -663,7 +677,8 @@ RomboEngine.prototype.checkDropInGamepads=function()
           "type":"gamepad",
           "index":i,
           "settings":[],
-          "deviceName":gamepad.id.substring(0,gamepad.id.lastIndexOf("("))
+          "deviceName":gamepad.id.substring(0,gamepad.id.lastIndexOf("(")),
+          "remap":[0,1,2,3]
         });
       }
     }
@@ -1821,7 +1836,17 @@ RomboEngine.prototype.multiplyColor=function(color,opacity)
     color["rgb"[key]]=Math.floor(Math.min(component+addValue,255));
   }
   color.a=Math.min(opacity,1);
-  return "rgba("+color.r+","+color.g+","+color.b+","+color.a.toFixed(6)+")";
+  if(this.options.enableColorTransparency)
+  {
+    return "rgba("+color.r+","+color.g+","+color.b+","+color.a.toFixed(6)+")";
+  }
+  else
+  {
+    color.r=color.r*color.a+this.backgroundColor.r*(1-color.a);
+    color.g=color.g*color.a+this.backgroundColor.g*(1-color.a);
+    color.b=color.b*color.a+this.backgroundColor.b*(1-color.a);
+    return "rgb("+Math.floor(color.r)+","+Math.floor(color.g)+","+Math.floor(color.b)+")";
+  }
 }
 
 //Deja vu
@@ -1871,6 +1896,8 @@ RomboEngine.prototype.getColorOf=function(player)
     return this.enemyColor.color;
   }
 }
+
+RomboEngine.prototype.isItARomboGame=true; //Axiom
 
 //External code snipetts starts here
 //Special thanks to everyone who wrote them
