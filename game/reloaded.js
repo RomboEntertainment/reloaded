@@ -326,6 +326,9 @@ RomboFight=function(input)
   
   //Some additional options
   this.options.missileDetail=3;
+  this.options.minHeat=0.25;
+  this.options.maxHeat=2.5;
+  this.options.fighterCooldown=0.01;
 }
 //Inheritance
 RomboFight.prototype=RomboEngine.prototype;
@@ -408,7 +411,8 @@ RomboFight.prototype.spawnFighter=function(fighterdata)
     "player":fighterdata.player,
     "weapons":[],
     "weaponsToFire":[],
-    "jedi":(fighterdata.jedi!==undefined) ? fighterdata.jedi : true //This specifies the side it'll fight on if you don't understand for some reason
+    "jedi":(fighterdata.jedi!==undefined) ? fighterdata.jedi : true, //This specifies the side it'll fight on if you don't understand for some reason
+    "overheat":false
   })
 }
 
@@ -458,14 +462,26 @@ RomboFight.prototype.moveFighter=function(fighter)
   
   if(fighter.heat>0)
   {
-    fighter.heat-=0.015;
+    fighter.heat-=this.options.fighterCooldown;
   }
-  for(var key in fighter.weaponsToFire)
+  if(fighter.heat<=this.options.minHeat)
   {
-    var weaponProto=this.weapons[fighter.weaponsToFire[key].type];
-    if(fighter.heat+weaponProto.heat<=1)
+    fighter.overheat=false;
+  }
+  
+  if(!fighter.overheat)
+  {
+    for(var key in fighter.weaponsToFire)
     {
-      this.shootWeapon(fighter,fighter.weaponsToFire[key]);
+      var weaponProto=this.weapons[fighter.weaponsToFire[key].type];
+      if(fighter.heat<=this.options.maxHeat)
+      {
+        this.shootWeapon(fighter,fighter.weaponsToFire[key]);
+        if(fighter.heat>this.options.maxHeat)
+        {
+          fighter.overheat=true;
+        }
+      }
     }
   }
 }
@@ -760,8 +776,8 @@ RomboFight.prototype.drawMissile=function(missile)
       this.context.moveTo(trail.p1.x,trail.p1.y);
       this.context.lineTo(trail.p2.x,trail.p2.y);
       var grad=this.context.createLinearGradient(trail.p1.x,trail.p1.y,trail.p2.x,trail.p2.y);
-      var startOpacity=breakMissile ? Math.max(missile.trail[0].o1/missile.trail.length*(missile.trail.length-i)-1,0) : Math.max(trail.o1-1,0);
-      var endOpacity=breakMissile ? Math.max(missile.trail[0].o1/missile.trail.length*(missile.trail.length-i-1)-1,0) : Math.max(trail.o2-1,0);
+      var startOpacity=breakMissile ? Math.max(missile.trail[0].o1/Math.min(missile.trail.length,4)*(Math.min(missile.trail.length,4)-i)-1,0) : Math.max(trail.o1-1,0);
+      var endOpacity=breakMissile ? Math.max(missile.trail[0].o1/Math.min(missile.trail.length,4)*(Math.min(missile.trail.length,4)-i-1)-1,0) : Math.max(trail.o2-1,0);
       grad.addColorStop(0,this.multiplyColor(this.getColorOf(missile.sender.player),startOpacity));
       grad.addColorStop(1,this.multiplyColor(this.getColorOf(missile.sender.player),endOpacity));
       this.context.strokeStyle=grad;
@@ -783,8 +799,8 @@ RomboFight.prototype.drawMissile=function(missile)
     this.context.moveTo(trail.p1.x,trail.p1.y);
     this.context.lineTo(trail.p2.x,trail.p2.y);
     var grad=this.context.createLinearGradient(trail.p1.x,trail.p1.y,trail.p2.x,trail.p2.y);
-    var startOpacity=breakMissile ? missile.trail[0].o1/missile.trail.length*(missile.trail.length-i) : trail.o1;
-    var endOpacity=breakMissile ? missile.trail[0].o1/missile.trail.length*(missile.trail.length-i-1) : trail.o2;
+    var startOpacity=breakMissile ? missile.trail[0].o1/Math.min(missile.trail.length,4)*(Math.min(missile.trail.length,4)-i) : trail.o1;
+    var endOpacity=breakMissile ? missile.trail[0].o1/Math.min(missile.trail.length,4)*(Math.min(missile.trail.length,4)-i-1) : trail.o2;
     grad.addColorStop(0,this.multiplyColor(this.getColorOf(missile.sender.player),startOpacity));
     grad.addColorStop(1,this.multiplyColor(this.getColorOf(missile.sender.player),endOpacity));
     this.context.strokeStyle=grad;
