@@ -334,6 +334,17 @@ RomboFight=function(input)
   this.options.friendlyFire=false;
   this.options.regenerationFactor=0.005;
   this.options.corpseDespawnRate=0.01;
+  this.options.players=[];
+  for(var i=0;i<=this.colors.length;i++)
+  {
+    this.options.players.push({
+      "primary":"doublegun",
+      "secondary":"simplegun",
+      "support":"shield",
+      "ultra":false
+    });
+  }
+  this.options.giveAiOnReplace=false;
 }
 //Inheritance
 RomboFight.prototype=RomboEngine.prototype;
@@ -417,7 +428,7 @@ RomboFight.prototype.gameDraw=function()
 //But OK, let's do something less underrated
 RomboFight.prototype.spawnFighter=function(fighterdata)
 {
-  this.fighters.push({
+  var id=this.fighters.push({
     "pos":{"x":120,"y":120},
     "speed":{"x":0,"y":0},
     "size":{"x":50,"y":80},
@@ -430,7 +441,8 @@ RomboFight.prototype.spawnFighter=function(fighterdata)
     "weaponsToFire":[],
     "jedi":(fighterdata.jedi!==undefined) ? fighterdata.jedi : true, //This specifies the side it'll fight on if you don't understand for some reason
     "overheat":false
-  })
+  });
+  return this.fighters[id-1];
 }
 
 //You can even see this in action
@@ -679,7 +691,7 @@ RomboFight.prototype.drawWeapon=function(fighter,weapon)
   {
     var barrel=weaponProto.barrels[i];
     var image=weaponProto.barrelImages[fighter.player];
-    this.drawImageTo(image,{"x":barrel.x*fighter.sizeRatio,"y":(barrel.y-image.height/2+weapon.recoil[i]*barrel.maxRecoil*(fighter.jedi ? 1 : -1))*fighter.sizeRatio},fighter.sizeRatio);
+    this.drawImageTo(image,{"x":barrel.x*fighter.sizeRatio,"y":(barrel.y-image.height/2+weapon.recoil[i]*barrel.maxRecoil)*fighter.sizeRatio},fighter.sizeRatio);
   }
   this.drawImageTo(weaponProto.images[fighter.player],{"x":0,"y":0},fighter.sizeRatio);
   this.context.restore();
@@ -700,7 +712,7 @@ RomboFight.prototype.shootWeapon=function(fighter,weapon)
     {
       weapon.recoil[weapon.barrelID]+=barrel.recoilPerShot;
       this.missiles.push({
-        "pos":{"x":point.x+barrel.x*fighter.sizeRatio*(fighter.jedi ? 1 : -1),"y":point.y+(barrel.y+image.height*(fighter.jedi ? -1 : 1)+recoil*barrel.maxRecoil*(fighter.jedi ? 1 : -1))*fighter.sizeRatio},
+        "pos":{"x":point.x+barrel.x*fighter.sizeRatio*(fighter.jedi ? 1 : -1),"y":point.y+(-barrel.y+image.height-recoil*barrel.maxRecoil)*fighter.sizeRatio*(fighter.jedi ? -1 : 1)},
         "speed":{"x":fighter.speed.x*0.25,"y":fighter.speed.y*0.25+barrel.shotPower*(fighter.jedi ? -1 : 1)},
         "trail":[],
         "sender":fighter,
@@ -1049,5 +1061,39 @@ RomboFight.prototype.buryCorpses=function()
   for(var i in this.removableCorpses)
   {
     this.corpses.splice(this.removableCorpses[i],1);
+  }
+}
+
+//Okay, next time we will give them life instead of taking it away
+RomboFight.prototype.spawnPlayer=function(player)
+{
+  var options=this.options.players[player];
+  var fighter=this.spawnFighter({
+    "player":player,
+    "jedi":this.colors.length>player
+  });
+  
+  if(options.primary) { this.addWeapon(fighter,options.primary,0); }
+  if(options.secondary) { this.addWeapon(fighter,options.secondary,1); }
+  if(options.support) { this.addWeapon(fighter,options.support,2); }
+  if(options.ultra) { this.addWeapon(fighter,options.ultra,3); }
+  
+  var input=this.getInputByPlayer(player);
+  if(input)
+  {
+    this.takeControl(game.fighters[player],game.inputs[player]);
+  }
+}
+
+//These comments gone a little bit useless...
+//But there is a utility function for you
+RomboFight.prototype.getControlOfPlayer=function(player)
+{
+  for(var i in this.controls)
+  {
+    if(this.getPlayerId(this.controls[i].input.color))
+    {
+      return this.controls[i];
+    }
   }
 }
