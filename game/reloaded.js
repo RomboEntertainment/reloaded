@@ -117,7 +117,8 @@ RomboFight=function(input)
     "base":this.loadImage("game/images/base.png"),
     "heat":this.loadImage("game/images/heat.png"),
     "shield":this.loadImage("game/images/shield.png"),
-    "bumper":this.loadImage("game/images/bumper.png")
+    "bumper":this.loadImage("game/images/bumper.png"),
+    "deadbody":this.loadImage("game/images/deadbody.png")
   }
   this.playerImages={
     "base":[
@@ -142,6 +143,7 @@ RomboFight=function(input)
   this.fighters=[];
   this.controls=[];
   this.missiles=[]; //Pretty nice pattern here... too nice it caused OCD
+  this.corpses=[];
   
   //Some settings here
   this.weaponSlots=[
@@ -171,7 +173,7 @@ RomboFight=function(input)
           "maxRecoil":20,
           "recoilDampener":0.05,
           "shotPower":50,
-          "shotDamage":128,
+          "shotDamage":0.2,
           "trailVanish":0.2 
         }
       ],
@@ -198,7 +200,7 @@ RomboFight=function(input)
           "maxRecoil":20,
           "recoilDampener":0.05,
           "shotPower":50,
-          "shotDamage":64,
+          "shotDamage":0.1,
           "trailVanish":0.2
         },
         {
@@ -208,7 +210,7 @@ RomboFight=function(input)
           "maxRecoil":20,
           "recoilDampener":0.05,
           "shotPower":50,
-          "shotDamage":64,
+          "shotDamage":0.1,
           "trailVanish":0.2
         }
       ],
@@ -329,6 +331,9 @@ RomboFight=function(input)
   this.options.minHeat=0.25;
   this.options.maxHeat=2.5;
   this.options.fighterCooldown=0.01;
+  this.options.friendlyFire=false;
+  this.options.regenerationFactor=0.005;
+  this.options.corpseDespawnRate=0.01;
 }
 //Inheritance
 RomboFight.prototype=RomboEngine.prototype;
@@ -356,6 +361,12 @@ RomboFight.prototype.gameTick=function()
     {
       this.useControl(this.controls[i]);
     }
+    this.removableCorpses=[];
+    for(var i=0;i<this.corpses.length;i++)
+    {
+      this.moveCorpse(this.corpses[i]);
+    }
+    this.deadFighters=[];
     for(var i=0;i<this.fighters.length;i++)
     {
       this.moveFighter(this.fighters[i]);
@@ -364,10 +375,12 @@ RomboFight.prototype.gameTick=function()
         this.coolWeapon(this.fighters[i].weapons[j]);
       }
       this.removeEffects(this.fighters[i]);
+      this.sendToAsgard();
     }
     for(var i=0;i<this.missiles.length;i++)
     {
       this.moveMissile(this.missiles[i]);
+      this.testMissile(this.missiles[i]);
     }
     this.cleanupMissiles();
   }
@@ -385,6 +398,10 @@ RomboFight.prototype.gameDraw=function()
   }
   if(Array("game").indexOf(this.mode)>-1) //See?
   {
+    for(var i=0;i<this.corpses.length;i++)
+    {
+      this.drawCorpse(this.corpses[i]);
+    }
     for(var i=0;i<this.fighters.length;i++)
     {
       this.drawFighter(this.fighters[i]);
@@ -483,6 +500,15 @@ RomboFight.prototype.moveFighter=function(fighter)
         }
       }
     }
+  }
+  
+  if(fighter.health<=0)
+  {
+    this.deadFighters.push(this.fighters.indexOf(fighter));
+  }
+  if(fighter.health<1)
+  {
+    fighter.health=Math.min(fighter.health+this.options.regenerationFactor,1);
   }
 }
 
@@ -921,5 +947,107 @@ RomboFight.prototype.drawEffects=function(fighter)
     {
       this.drawImageTo(image,fighter.pos,fighter.sizeRatio,effect);
     }
+  }
+}
+
+//What are you doing again?
+RomboFight.prototype.testMissile=function(missile)
+{
+  for(var i in this.fighters)
+  {
+    if(!missile.active)
+    {
+      continue; //Don't be afraid of shadows
+    }
+    if(!missile.trail.length)
+    {
+      continue; //We don't serve standing missiles
+    }
+    
+    var fighter=this.fighters[i];
+    
+    if(fighter==missile.sender)
+    {
+      continue; //Self fire prevention script
+    }
+    if(fighter.jedi==missile.sender.jedi && !this.options.friendlyFire)
+    {
+      continue; //Friendly fire prevention script
+    }
+    
+    var p1=this.point(fighter.pos.x+fighter.size.x,fighter.pos.y); //Left
+    var p2=this.point(fighter.pos.x,fighter.pos.y+fighter.size.y); //Bottom
+    var p3=this.point(fighter.pos.x-fighter.size.x,fighter.pos.y); //Right
+    var p4=this.point(fighter.pos.x,fighter.pos.y-fighter.size.y); //Top
+    
+    var m1=missile.trail[0].p1;
+    var m2=missile.trail[0].p2;
+    
+    valid=0;
+    valid|=this.intersect(p1,p2,m1,m2);
+    valid|=this.intersect(p2,p3,m1,m2);
+    valid|=this.intersect(p3,p4,m1,m2);
+    valid|=this.intersect(p4,p1,m1,m2);
+    
+    if(valid)
+    {
+      var shieldEffect=Math.min(Math.max(1-this.getEffect(fighter,"shield")*4,0),1);
+      if(shieldEffect)
+      {
+        this.hitFighter(fighter,missile,shieldEffect);
+      }
+    }
+  }
+}
+
+//Stop! You will hurt someone!
+RomboFight.prototype.hitFighter=function(fighter,missile,shieldEffect)
+{
+  if(shieldEffect===undefined)
+  {
+    shieldEffect=1;
+  }
+  fighter.health-=missile.damage*shieldEffect;
+}
+
+//See what have you done
+RomboFight.prototype.sendToAsgard=function()
+{
+  this.deadFighters.sort(function(a, b){return b-a});
+  for(var i in this.deadFighters)
+  {
+    var fighter=this.fighters[this.deadFighters[i]];
+    this.corpses.push({
+      "pos":fighter.pos,
+      "sizeRatio":fighter.sizeRatio,
+      "opacity":1
+    })
+    this.fighters.splice(this.deadFighters[i],1);
+  }
+}
+
+//At least take care of the dead bodies
+RomboFight.prototype.moveCorpse=function(corpse)
+{
+  corpse.opacity-=this.options.corpseDespawnRate;
+  if(corpse.opacity<=0)
+  {
+    this.removableCorpses.push(this.corpses.indexOf(corpse));
+  }
+}
+
+//Look at them for the last time
+RomboFight.prototype.drawCorpse=function(corpse)
+{
+  this.drawImageTo(this.images.deadbody,corpse.pos,corpse.sizeRatio,corpse.opacity);
+}
+
+//Then hide them away. We don't need them anymore.
+RomboFight.prototype.buryCorpses=function()
+{
+  this.removableCorpses.sort(function(a, b){return b-a});
+  for(var i in this.removableCorpses)
+  {
+    this.corpses.splice(this.removableCorpses[i],1);
   }
 }

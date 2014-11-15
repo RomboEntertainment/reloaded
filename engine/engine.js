@@ -77,7 +77,7 @@ RomboEngine=function(input)
   }
   
   //Init input colors
-  this.colors=["#00ff00","ffc800","ffffff","003cff","808080"]; //These are our basic colors, you are free to override it
+  this.colors=["00ff00","ffc800","ffffff","003cff","808080"]; //These are our basic colors, you are free to override it
   this.colorSettings=[ //Settings per color. Surprise, surprise...
     {
       "name": "Green",
@@ -101,7 +101,7 @@ RomboEngine=function(input)
     }
   ];
   this.enemyColor={ //Universal enemy color, you cannot use that one with players
-    "color":"#ff0000",
+    "color":"ff0000",
     "name":"Red",
     "image":this.loadImage("engine/images/red.png")
   }
@@ -905,7 +905,24 @@ RomboEngine.prototype.showDropinMenu=function()
 //This name is really self docuenting
 RomboEngine.prototype.getSettingsOfColor=function(color)
 {
-  return this.colorSettings[this.getPlayerId(color)];
+  return this.getSettingsOfPlayer(this.getPlayerId(color));
+}
+
+//[UPDATE] Moved the entire function content here, but the other function remains for compatibility
+RomboEngine.prototype.getSettingsOfPlayer=function(id)
+{
+  if(this.colorSettings[id])
+  {
+    return this.colorSettings[id];
+  }
+  else if(id==this.colors.length)
+  {
+    return this.enemyColor;
+  }
+  else
+  {
+    return false;
+  }
 }
 
 //Another menu function if you thought it was simple
@@ -1749,7 +1766,19 @@ RomboEngine.prototype.startGameMenu=function()
 //Let me write there another utility function. I know you like them.
 RomboEngine.prototype.getPlayerId=function(color)
 {
-  return this.colors.indexOf(color);
+  var id=this.colors.indexOf(color);
+  if(id!=-1)
+  {
+    return id;
+  }
+  else if(color==this.enemyColor.color)
+  {
+    return this.colors.length;
+  }
+  else
+  {
+    return -1;
+  }
 }
 
 //This function could be in a game, but why not write it there?
@@ -1866,7 +1895,6 @@ RomboEngine.prototype.convertColor=function(color)
     }
     else if(color.indexOf("rgb")>-1)
     {
-      console.log('Still alive');
       color=color.replace(/rgb\(/g,'');
       color=color.replace(/rgba\(/g,'');
       color=color.replace(/\)/g,'');
@@ -1898,6 +1926,93 @@ RomboEngine.prototype.getColorOf=function(player)
 }
 
 RomboEngine.prototype.isItARomboGame=true; //Axiom
+
+//What's the point of this function?
+RomboEngine.prototype.point=function(x,y)
+{
+  return {"x":x,"y":y};
+}
+//Easy. Code simplification. Sorry for the horrible pun.
+
+RomboEngine.prototype.intersect=function(p1,p2,p3,p4)
+{
+  var intersect=false;
+  var valid=false;
+  var x1=p1.x-p2.x;
+  var y1=p1.y-p2.y;
+  var x2=p3.x-p4.x;
+  var y2=p3.y-p4.y;
+  if(x1!=0)
+  {
+    var a=y1/x1;
+    var b=p1.y-p1.x*a;
+  }
+  if(x2!=0)
+  {
+    var c=y2/x2;
+    var d=p3.y-p3.x*c;
+  }
+  if(x1==0 && x2==0)
+  {
+    if(p1.x==p3.x)
+    {
+      valid=false;
+      if(p1.y>p3.y && p1.y<p4.y) {valid=true;}
+      if(p1.y<p3.y && p1.y>p4.y) {valid=true;}
+      if(p2.y>p3.y && p2.y<p4.y) {valid=true;}
+      if(p2.y<p3.y && p2.y>p4.y) {valid=true;}
+      intersect=valid ? true : intersect;
+    }
+  }
+  else if(x1==0)
+  {
+    var y=p1.x*c+d;
+    valid=false;
+    if(y>p1.y && y<p2.y) {valid=true;}
+    if(y<p1.y && y>p2.y) {valid=true;}
+    intersect=valid ? true : intersect;
+  }
+  else if(x2==0)
+  {
+    var y=p3.x*a+b;
+    valid=false;
+    if(y>p1.y && y<p2.y) {valid=true;}
+    if(y<p1.y && y>p2.y) {valid=true;}
+    intersect=valid ? true : intersect;
+  }
+  else if(a==c)
+  {
+    valid=false;
+    if(p1.y>p3.y && p1.y<p4.y) {valid=true;}
+    if(p1.y<p3.y && p1.y>p4.y) {valid=true;}
+    if(p2.y>p3.y && p2.y<p4.y) {valid=true;}
+    if(p2.y<p3.y && p2.y>p4.y) {valid=true;}
+    if(d!=b) {valid=false;}
+    intersect=valid ? true : intersect;
+  }
+  else
+  {
+    var x=(d-b)/(a-c);
+    var y=a*x+b;
+    var valid1=false;
+    var valid2=false;
+    if(p1.x>x && p2.x<x) {valid1=true;}
+    if(p1.x<x && p2.x>x) {valid1=true;}
+    if(p3.x>x && p4.x<x) {valid2=true;}
+    if(p3.x<x && p4.x>x) {valid2=true;}
+    valid=valid1 && valid2;
+    intersect=valid ? true : intersect;
+    if(p1.x==x && p1.y==y) {intersect=false;}
+    if(p2.x==x && p2.y==y) {intersect=false;}
+    if(p3.x==x && p3.y==y) {intersect=false;}
+    if(p4.x==x && p4.y==y) {intersect=false;}
+  }
+  if(p1.x==p3.x && p1.y==p3.y) {intersect=false;}
+  if(p1.x==p4.x && p1.y==p4.y) {intersect=false;}
+  if(p2.x==p3.x && p2.y==p3.y) {intersect=false;}
+  if(p2.x==p4.x && p2.y==p4.y) {intersect=false;}
+  return intersect;
+}
 
 //External code snipetts starts here
 //Special thanks to everyone who wrote them
