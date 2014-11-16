@@ -158,6 +158,7 @@ RomboEngine=function(input)
     }
   });
   
+  /* Mouse control disabled
   //Clicking, if you cannot understand my code. Wait, why are you reading then?
   this.holder.addEventListener('mousedown',function(){
     //Drop in system for mice too
@@ -215,7 +216,7 @@ RomboEngine=function(input)
     self.mouse=({
       "lookAt":event.toElement
     });
-  });
+  }); */
   
   //Menu definitions. That will be long...
   this.menus={
@@ -505,7 +506,7 @@ RomboEngine=function(input)
 RomboEngine.prototype.initMenu=function(gamepadsEnabled)
 {
   var initMenu=document.createElement('div');
-  initMenu.innerHTML="Click or press any button on your selected input device<br><small>Keyboard"+(gamepadsEnabled ? ", mouse, and gamepads" : " and mouse")+" are supported</small>";
+  initMenu.innerHTML="Click or press any button on your selected input device<br><small>"+(gamepadsEnabled ? "Keyboard and gamepads are" : "Only keyboard is")+" supported</small>";
   initMenu.style.textAlign="center";
   this.applyMenu(initMenu,"init");
 }

@@ -357,6 +357,17 @@ RomboFight=function(input)
   this.options.hudOffset=5;
   this.options.hudAngle=0.4;
   this.options.enemyPerPlayer=1;
+  
+  //And statistics
+  this.stats.players=[];
+  for(var i=0;i<=this.colors.length;i++)
+  {
+    this.stats.players.push({
+      "hits":0,
+      "kills":0,
+      "assist":0
+    });
+  }
 }
 //Inheritance
 RomboFight.prototype=RomboEngine.prototype;
@@ -475,7 +486,8 @@ RomboFight.prototype.spawnFighter=function(fighterdata)
     "weaponsToFire":[],
     "jedi":(fighterdata.jedi!==undefined) ? fighterdata.jedi : true, //This specifies the side it'll fight on if you don't understand for some reason
     "overheat":false,
-    "inCollision":false
+    "inCollision":false,
+    "lastHit":false
   };
   this.fighters.push(fighter);
   return fighter;
@@ -554,6 +566,10 @@ RomboFight.prototype.moveFighter=function(fighter)
   {
     this.deadFighters.push(this.fighters.indexOf(fighter));
     this.getControlOfPlayer(fighter.player).fighter=false;
+    if(fighter.lastHit)
+    {
+      this.stats.players[fighter.lastHit.player].kills++;
+    }
   }
   if(fighter.health<1)
   {
@@ -1078,6 +1094,10 @@ RomboFight.prototype.hitFighter=function(fighter,missile,shieldEffect)
     shieldEffect=1;
   }
   fighter.health-=missile.damage*shieldEffect;
+  if(shieldEffect)
+  {
+    fighter.lastHit=missile.sender;
+  }
 }
 
 //See what have you done
@@ -1197,6 +1217,10 @@ RomboFight.prototype.damageFighter=function(fighter,attacker)
   var defenseEffect=1-Math.min(this.getEffect(fighter,"bumper")*4,1);
   fighter.health-=this.options.collisionDamage*attackEffect*defenseEffect;
   fighter.inCollision=true;
+  if(defenseEffect)
+  {
+    fighter.lastHit=attacker;
+  }
 }
 
 //I want to write some funny there but I just realized I can't do it for a long time
@@ -1233,7 +1257,7 @@ RomboFight.prototype.drawHud=function(player)
   var hudColor=this.getColorOf(player);
   var control=this.getControlOfPlayer(player);
   var fighter=control.fighter;
-  if(control && control.fighter)
+  if(control && fighter)
   {
     this.context.lineWidth=this.options.hudWidth;
     this.context.beginPath();
@@ -1247,6 +1271,15 @@ RomboFight.prototype.drawHud=function(player)
       this.context.strokeStyle='#dddddd';
       this.context.stroke();
     }
+    var effectList=this.listEffects(fighter);
+    for(var i in effectList)
+    {
+      var effect=Math.min(this.getEffect(fighter,effectList[i]),1);
+      this.context.beginPath();
+      this.context.arc(hudOrigin.x,hudOrigin.y,this.options.hudSize/2-this.options.hudWidth*2*(i+2),Math.PI*1.5,Math.PI*1.5+Math.PI*2*effect);
+      this.context.strokeStyle=["#dddddd","#00e7e7","#e76e00"][["shield","bumper"].indexOf(effectList[i])+1];
+      this.context.stroke();
+    }
   }
   else
   {
@@ -1256,6 +1289,15 @@ RomboFight.prototype.drawHud=function(player)
     this.context.strokeStyle="#"+hudColor;
     this.context.stroke();
   }
+  var text=this.stats.players[player].kills;
+  this.context.fillStyle="#dddddd";
+  this.context.font="10px Ubuntu";
+  var measure=this.context.measureText(text);
+  var ratio=(this.options.hudSize/3)/measure.width;
+  var fontSize=Math.floor(10*ratio);
+  this.context.font=fontSize+"px Ubuntu";
+  this.context.textAlign="center";
+  this.context.fillText(text,hudOrigin.x,hudOrigin.y+fontSize/3);
 }
 
 RomboFight.prototype.spawnSides=function(light,dark)
@@ -1269,12 +1311,24 @@ RomboFight.prototype.spawnSides=function(light,dark)
   }
   if(dark)
   {
-    console.log(this.inputs.length*this.options.enemyPerPlayer);
     for(var i=0;i<this.inputs.length*this.options.enemyPerPlayer;i++)
     {
       this.spawnPlayer(this.colors.length);
     }
   }
+}
+
+RomboFight.prototype.checkSide=function(light)
+{
+  var side=false;
+  for(var i in this.fighters)
+  {
+    if(this.fighters[i].jedi==light)
+    {
+      side=true;
+    }
+  }
+  return side;
 }
 
 //These comments gone a little bit useless...
