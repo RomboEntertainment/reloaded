@@ -1934,7 +1934,7 @@ RomboEngine.prototype.point=function(x,y)
 }
 //Easy. Code simplification. Sorry for the horrible pun.
 
-RomboEngine.prototype.intersect=function(p1,p2,p3,p4)
+RomboEngine.prototype.intersect=function(p1,p2,p3,p4,intersectionPoint)
 {
   var intersect=false;
   var valid=false;
@@ -1956,6 +1956,8 @@ RomboEngine.prototype.intersect=function(p1,p2,p3,p4)
   {
     if(p1.x==p3.x)
     {
+      var x=(p1.x+p2.x+p3.x+p4.x)/4;
+      var y=(p1.y+p2.y+p3.y+p4.y)/4;
       valid=false;
       if(p1.y>p3.y && p1.y<p4.y) {valid=true;}
       if(p1.y<p3.y && p1.y>p4.y) {valid=true;}
@@ -1966,6 +1968,7 @@ RomboEngine.prototype.intersect=function(p1,p2,p3,p4)
   }
   else if(x1==0)
   {
+    var x=p1.x;
     var y=p1.x*c+d;
     valid=false;
     if(y>p1.y && y<p2.y) {valid=true;}
@@ -1974,6 +1977,7 @@ RomboEngine.prototype.intersect=function(p1,p2,p3,p4)
   }
   else if(x2==0)
   {
+    var x=p3.x;
     var y=p3.x*a+b;
     valid=false;
     if(y>p1.y && y<p2.y) {valid=true;}
@@ -1982,6 +1986,8 @@ RomboEngine.prototype.intersect=function(p1,p2,p3,p4)
   }
   else if(a==c)
   {
+    var x=(p1.x+p2.x+p3.x+p4.x)/4;
+    var y=(p1.y+p2.y+p3.y+p4.y)/4;
     valid=false;
     if(p1.y>p3.y && p1.y<p4.y) {valid=true;}
     if(p1.y<p3.y && p1.y>p4.y) {valid=true;}
@@ -2011,6 +2017,11 @@ RomboEngine.prototype.intersect=function(p1,p2,p3,p4)
   if(p1.x==p4.x && p1.y==p4.y) {intersect=false;}
   if(p2.x==p3.x && p2.y==p3.y) {intersect=false;}
   if(p2.x==p4.x && p2.y==p4.y) {intersect=false;}
+  if(intersect)
+  {
+    intersectionPoint.x=x;
+    intersectionPoint.y=y;
+  }
   return intersect;
 }
 

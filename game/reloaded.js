@@ -173,7 +173,7 @@ RomboFight=function(input)
           "maxRecoil":20,
           "recoilDampener":0.05,
           "shotPower":50,
-          "shotDamage":0.2,
+          "shotDamage":0.4,
           "trailVanish":0.2 
         }
       ],
@@ -200,7 +200,7 @@ RomboFight=function(input)
           "maxRecoil":20,
           "recoilDampener":0.05,
           "shotPower":50,
-          "shotDamage":0.1,
+          "shotDamage":0.2,
           "trailVanish":0.2
         },
         {
@@ -210,7 +210,7 @@ RomboFight=function(input)
           "maxRecoil":20,
           "recoilDampener":0.05,
           "shotPower":50,
-          "shotDamage":0.1,
+          "shotDamage":0.2,
           "trailVanish":0.2
         }
       ],
@@ -345,6 +345,18 @@ RomboFight=function(input)
     });
   }
   this.options.giveAiOnReplace=false;
+  this.options.power=20;
+  this.options.drag=0.0064;
+  this.options.friction=5;
+  this.options.collisionDamage=0.2;
+  this.options.rebounceRatio=0;
+  this.options.hudSize=72;
+  this.options.hudGap=1.5;
+  this.options.hudWidth=2;
+  this.options.hudSpeed=0.01;
+  this.options.hudOffset=5;
+  this.options.hudAngle=0.4;
+  this.options.enemyPerPlayer=1;
 }
 //Inheritance
 RomboFight.prototype=RomboEngine.prototype;
@@ -377,6 +389,7 @@ RomboFight.prototype.gameTick=function()
     {
       this.moveCorpse(this.corpses[i]);
     }
+    this.buryCorpses();
     this.deadFighters=[];
     for(var i=0;i<this.fighters.length;i++)
     {
@@ -386,8 +399,9 @@ RomboFight.prototype.gameTick=function()
         this.coolWeapon(this.fighters[i].weapons[j]);
       }
       this.removeEffects(this.fighters[i]);
-      this.sendToAsgard();
+      this.testFighter(this.fighters[i]);
     }
+    this.sendToAsgard();
     for(var i=0;i<this.missiles.length;i++)
     {
       this.moveMissile(this.missiles[i]);
@@ -421,6 +435,11 @@ RomboFight.prototype.gameDraw=function()
     {
       this.drawMissile(this.missiles[i]);
     }
+    for(var i in this.inputs)
+    {
+      var player=this.getPlayerId(this.inputs[i].color);
+      this.drawHud(player);
+    }
   }
   //console.log(this.stats.currentDraw.linesDrawn);
 }
@@ -428,10 +447,25 @@ RomboFight.prototype.gameDraw=function()
 //But OK, let's do something less underrated
 RomboFight.prototype.spawnFighter=function(fighterdata)
 {
-  var id=this.fighters.push({
-    "pos":{"x":120,"y":120},
+  var isOkay=false;
+  var size={"x":50,"y":80};
+  var pos;
+  while(!isOkay)
+  {
+    pos={"x":Math.random()*(this.canvas.width-size.x)+size.y/2,"y":Math.random()*(this.canvas.height-size.y)+size.y/2};
+    isOkay=true;
+    for(var i in this.fighters)
+    {
+      if(this.testCollision({"pos":pos,"size":size},this.fighters[i]))
+      {
+        isOkay=false;
+      }
+    }
+  }
+  var fighter={
+    "pos":pos,
     "speed":{"x":0,"y":0},
-    "size":{"x":50,"y":80},
+    "size":size,
     "sizeRatio":0.2,
     "health":1,
     "heat":0,
@@ -440,16 +474,18 @@ RomboFight.prototype.spawnFighter=function(fighterdata)
     "weapons":[],
     "weaponsToFire":[],
     "jedi":(fighterdata.jedi!==undefined) ? fighterdata.jedi : true, //This specifies the side it'll fight on if you don't understand for some reason
-    "overheat":false
-  });
-  return this.fighters[id-1];
+    "overheat":false,
+    "inCollision":false
+  };
+  this.fighters.push(fighter);
+  return fighter;
 }
 
 //You can even see this in action
 RomboFight.prototype.moveFighter=function(fighter)
 {
   var realSpeed=Math.sqrt(Math.pow(fighter.speed.x,2)+Math.pow(fighter.speed.y,2));
-  var drag=Math.pow(realSpeed,2)*0.0064;
+  var drag=Math.pow(realSpeed,2)*this.options.drag;
   if(realSpeed)
   {
     fighter.speed.x-=fighter.speed.x*drag/realSpeed;
@@ -457,7 +493,7 @@ RomboFight.prototype.moveFighter=function(fighter)
   }
   
   var realSpeed=Math.sqrt(Math.pow(fighter.speed.x,2)+Math.pow(fighter.speed.y,2));
-  var friction=Math.min(realSpeed,1);
+  var friction=Math.min(realSpeed,this.options.friction);
   if(realSpeed)
   {
     fighter.speed.x-=fighter.speed.x*friction/realSpeed;
@@ -517,6 +553,7 @@ RomboFight.prototype.moveFighter=function(fighter)
   if(fighter.health<=0)
   {
     this.deadFighters.push(this.fighters.indexOf(fighter));
+    this.getControlOfPlayer(fighter.player).fighter=false;
   }
   if(fighter.health<1)
   {
@@ -541,6 +578,11 @@ RomboFight.prototype.drawFighter=function(fighter)
 //But they will respect this function immediately when we turn it off
 RomboFight.prototype.useControl=function(control)
 {
+  if(!control.fighter)
+  {
+    return false;
+  }
+  
   if(control.input.type=="gamepad")
   {
     if(!this.getGamepadByIndex(control.input.index)
@@ -607,8 +649,8 @@ RomboFight.prototype.useControl=function(control)
     control.dir.y/=fullspeed;
   }
   
-  control.fighter.speed.x+=25*control.dir.x;
-  control.fighter.speed.y+=25*control.dir.y;
+  control.fighter.speed.x+=this.options.power*control.dir.x;
+  control.fighter.speed.y+=this.options.power*control.dir.y;
   
   control.fighter.weaponsToFire=[];
   for(var key in control.fighter.weapons)
@@ -642,20 +684,31 @@ RomboFight.prototype.useControl=function(control)
         break;
     }
   }
+  
+  return true;
 }
 
 //And ask for this
 RomboFight.prototype.takeControl=function(fighter,input)
 {
-  this.controls.push({
-    "dir":{"x":0,"y":0},
-    "primary":false,
-    "secondary":false,
-    "support":false,
-    "ultra":false,
-    "fighter":fighter,
-    "input":input
-  })
+  var control=this.getControlOfPlayer(fighter.player);
+  if(!control)
+  {
+    this.controls.push({
+      "dir":{"x":0,"y":0},
+      "primary":false,
+      "secondary":false,
+      "support":false,
+      "ultra":false,
+      "fighter":fighter,
+      "input":input
+    });
+  }
+  else
+  {
+    control.fighter=fighter;
+    control.input=input;
+  }
 }
 
 //But we can simply do this
@@ -987,19 +1040,21 @@ RomboFight.prototype.testMissile=function(missile)
       continue; //Friendly fire prevention script
     }
     
-    var p1=this.point(fighter.pos.x+fighter.size.x,fighter.pos.y); //Left
-    var p2=this.point(fighter.pos.x,fighter.pos.y+fighter.size.y); //Bottom
-    var p3=this.point(fighter.pos.x-fighter.size.x,fighter.pos.y); //Right
-    var p4=this.point(fighter.pos.x,fighter.pos.y-fighter.size.y); //Top
+    var p1=this.point(fighter.pos.x+fighter.size.x/2,fighter.pos.y); //Left
+    var p2=this.point(fighter.pos.x,fighter.pos.y+fighter.size.y/2); //Bottom
+    var p3=this.point(fighter.pos.x-fighter.size.x/2,fighter.pos.y); //Right
+    var p4=this.point(fighter.pos.x,fighter.pos.y-fighter.size.y/2); //Top
     
     var m1=missile.trail[0].p1;
     var m2=missile.trail[0].p2;
     
+    var point=this.point(0,0);
+    
     valid=0;
-    valid|=this.intersect(p1,p2,m1,m2);
-    valid|=this.intersect(p2,p3,m1,m2);
-    valid|=this.intersect(p3,p4,m1,m2);
-    valid|=this.intersect(p4,p1,m1,m2);
+    valid|=this.intersect(p1,p2,m1,m2,point);
+    valid|=this.intersect(p2,p3,m1,m2,point);
+    valid|=this.intersect(p3,p4,m1,m2,point);
+    valid|=this.intersect(p4,p1,m1,m2,point);
     
     if(valid)
     {
@@ -1008,6 +1063,9 @@ RomboFight.prototype.testMissile=function(missile)
       {
         this.hitFighter(fighter,missile,shieldEffect);
       }
+      missile.pos=point;
+      missile.trail[0].p1=point;
+      missile.active=false;
     }
   }
 }
@@ -1067,6 +1125,12 @@ RomboFight.prototype.buryCorpses=function()
 //Okay, next time we will give them life instead of taking it away
 RomboFight.prototype.spawnPlayer=function(player)
 {
+  var control=this.getControlOfPlayer(player);
+  if(control && control.fighter)
+  {
+    return false;
+  }
+  
   var options=this.options.players[player];
   var fighter=this.spawnFighter({
     "player":player,
@@ -1081,7 +1145,135 @@ RomboFight.prototype.spawnPlayer=function(player)
   var input=this.getInputByPlayer(player);
   if(input)
   {
-    this.takeControl(game.fighters[player],game.inputs[player]);
+    this.takeControl(fighter,input);
+  }
+}
+
+//I SAID GIVE IT AND DON'T TAKE IT AWAY
+RomboFight.prototype.testCollision=function(fighter1,fighter2,collisionRatio)
+{
+  var x=Math.abs(fighter1.pos.x-fighter2.pos.x)/(fighter1.size.x+fighter2.size.x)*2;
+  var y=Math.abs(fighter1.pos.y-fighter2.pos.y)/(fighter1.size.y+fighter2.size.y)*2;
+  if(typeof collisionRatio == "object")
+  {
+    collisionRatio.x=x;
+    collisionRatio.y=y;
+  }
+  return x+y<1;
+}
+
+//Do what the **** you want to
+RomboFight.prototype.testFighter=function(fighter)
+{
+  var exitCollision=true;
+  for(var i in this.fighters)
+  {
+    if(fighter==this.fighters[i])
+    {
+      continue;
+    }
+    var collisionRatio=this.point(0,0);
+    if(this.testCollision(fighter,this.fighters[i],collisionRatio))
+    {
+      if(!fighter.inCollision)
+      {
+        this.damageFighter(fighter,this.fighters[i]);
+        this.damageFighter(this.fighters[i],fighter);
+        this.collideFighters(fighter,this.fighters[i],collisionRatio);
+      }
+      exitCollision=false;
+    }
+  }
+  if(exitCollision)
+  {
+    fighter.inCollision=false;
+  }
+}
+
+//And see what the **** have you done
+RomboFight.prototype.damageFighter=function(fighter,attacker)
+{
+  var attackEffect=Math.min(this.getEffect(attacker,"bumper")*4,1)+1;
+  var defenseEffect=1-Math.min(this.getEffect(fighter,"bumper")*4,1);
+  fighter.health-=this.options.collisionDamage*attackEffect*defenseEffect;
+  fighter.inCollision=true;
+}
+
+//I want to write some funny there but I just realized I can't do it for a long time
+RomboFight.prototype.collideFighters=function(fighter1,fighter2,collisionRatio)
+{
+  collisionRatio=collisionRatio || this.point(1,1);
+  
+  var speed1=this.cloneObject(fighter1.speed);
+  var speed2=this.cloneObject(fighter2.speed);
+  
+  fighter1.speed={
+    "x":speed2.x-speed1.x*this.options.rebounceRatio,
+    "y":speed2.y-speed1.y*this.options.rebounceRatio
+  }
+  fighter2.speed={
+    "x":speed1.x-speed2.x*this.options.rebounceRatio,
+    "y":speed1.y-speed2.y*this.options.rebounceRatio
+  }
+  
+  fighter1.pos={
+    "x":fighter1.pos.x-(fighter1.size.x+fighter2.size.x)/4*collisionRatio.x*speed1.x/(Math.abs(speed1.x)+Math.abs(speed2.x) || 1),
+    "y":fighter1.pos.y-(fighter1.size.y+fighter2.size.y)/4*collisionRatio.y*speed1.y/(Math.abs(speed1.y)+Math.abs(speed2.y) || 1)
+  }
+  fighter2.pos={
+    "x":fighter2.pos.x-(fighter1.size.x+fighter2.size.x)/4*collisionRatio.x*speed2.x/(Math.abs(speed1.x)+Math.abs(speed2.x) || 1),
+    "y":fighter2.pos.y-(fighter1.size.y+fighter2.size.y)/4*collisionRatio.y*speed2.y/(Math.abs(speed1.y)+Math.abs(speed2.y) || 1)
+  }
+}
+
+//So I considered to draw something funny instead
+RomboFight.prototype.drawHud=function(player)
+{
+  var hudOrigin=this.point(this.options.hudSize*(player+0.5)*this.options.hudGap,this.canvas.height-this.options.hudSize*this.options.hudGap/2);
+  var hudColor=this.getColorOf(player);
+  var control=this.getControlOfPlayer(player);
+  var fighter=control.fighter;
+  if(control && control.fighter)
+  {
+    this.context.lineWidth=this.options.hudWidth;
+    this.context.beginPath();
+    this.context.arc(hudOrigin.x,hudOrigin.y,this.options.hudSize/2,Math.PI*1.5,Math.PI*1.5+Math.PI*2*fighter.health);
+    this.context.strokeStyle="#"+hudColor;
+    this.context.stroke();
+    if(fighter.heat>=0)
+    {
+      this.context.beginPath();
+      this.context.arc(hudOrigin.x,hudOrigin.y,this.options.hudSize/2-this.options.hudWidth*2,Math.PI*1.5,Math.PI*1.5+Math.PI*2*fighter.heat/this.options.maxHeat);
+      this.context.strokeStyle='#dddddd';
+      this.context.stroke();
+    }
+  }
+  else
+  {
+    var offset=window.performance.now()*this.options.hudSpeed+player*this.options.hudOffset;
+    this.context.beginPath();
+    this.context.arc(hudOrigin.x,hudOrigin.y,this.options.hudSize/2,offset,Math.PI*this.options.hudAngle+offset);
+    this.context.strokeStyle="#"+hudColor;
+    this.context.stroke();
+  }
+}
+
+RomboFight.prototype.spawnSides=function(light,dark)
+{
+  if(light)
+  {
+    for(var i in this.inputs)
+    {
+      this.spawnPlayer(this.getPlayerId(this.inputs[i].color));
+    }
+  }
+  if(dark)
+  {
+    console.log(this.inputs.length*this.options.enemyPerPlayer);
+    for(var i=0;i<this.inputs.length*this.options.enemyPerPlayer;i++)
+    {
+      this.spawnPlayer(this.colors.length);
+    }
   }
 }
 
@@ -1091,9 +1283,12 @@ RomboFight.prototype.getControlOfPlayer=function(player)
 {
   for(var i in this.controls)
   {
-    if(this.getPlayerId(this.controls[i].input.color))
+    if(this.getPlayerId(this.controls[i].input.color)==player)
     {
       return this.controls[i];
     }
   }
+  return false;
 }
+//This function will always be at the end. Always.
+//I hate myself so much for this poor and meaningless Harry Potter reference.
