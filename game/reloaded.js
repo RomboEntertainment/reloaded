@@ -145,6 +145,10 @@ RomboFight=function(input)
   this.missiles=[]; //Pretty nice pattern here... too nice it caused OCD
   this.corpses=[];
   
+  //This is for the AI
+  this.aiTicks=[];
+  this.aiId=0;
+  
   //Some settings here
   this.weaponSlots=[
     {"x":50,"y":0},
@@ -356,7 +360,13 @@ RomboFight=function(input)
   this.options.hudSpeed=0.01;
   this.options.hudOffset=5;
   this.options.hudAngle=0.4;
+  this.options.hudOpacity=0.75;
   this.options.enemyPerPlayer=1;
+  this.options.matchDelay=60;
+  this.options.respawnWinner=true;
+  this.options.aiDelay=20;
+  this.options.aiDelayRatio=1;
+  this.options.aiScript="game/ai/original.js";
   
   //And statistics
   this.stats.players=[];
@@ -368,6 +378,8 @@ RomboFight=function(input)
       "assist":0
     });
   }
+  this.stats.ingame=false;
+  this.stats.matchless=0;
 }
 //Inheritance
 RomboFight.prototype=RomboEngine.prototype;
@@ -383,6 +395,19 @@ RomboFight.prototype.startGame=function()
 {
   this.applyMenu(null,"ingame");
   this.mode="game";
+  
+  this.stats.wins=0;
+  this.stats.loses=0;
+  
+  this.ai=new Worker(this.options.aiScript);
+  
+  var self=this;
+  this.ai.onmessage=function(event)
+  {
+    self.reactToAi.call(self,event);
+  }
+  
+  this.spawnSides(true,true);
 }
 
 //The most underrated code ever.
@@ -391,6 +416,8 @@ RomboFight.prototype.gameTick=function()
 {
   if(Array("game").indexOf(this.mode)>-1) //The second laziest structure I've ever designed. I'm so proud of myself.
   {
+    this.rollAi(); //They see me rollin'...
+    
     for(var i=0;i<this.controls.length;i++)
     {
       this.useControl(this.controls[i]);
@@ -419,6 +446,24 @@ RomboFight.prototype.gameTick=function()
       this.testMissile(this.missiles[i]);
     }
     this.cleanupMissiles();
+    
+    this.checkMatch();
+    
+    if(!this.stats.ingame)
+    {
+      this.notifholder.style.left="auto";
+      this.notifholder.style.right="40px";
+    }
+    this.stats.ingame=true;
+  }
+  else
+  {
+    if(this.stats.ingame)
+    {
+      this.notifholder.style.left="40px";
+      this.notifholder.style.right="auto";
+    }
+    this.stats.ingame=false;
   }
 }
 
@@ -449,10 +494,13 @@ RomboFight.prototype.gameDraw=function()
     for(var i in this.inputs)
     {
       var player=this.getPlayerId(this.inputs[i].color);
-      this.drawHud(player);
+      this.drawHud(player,i);
     }
+    
+    this.notifholder.left="";
   }
   //console.log(this.stats.currentDraw.linesDrawn);
+  
 }
 
 //But OK, let's do something less underrated
@@ -609,7 +657,19 @@ RomboFight.prototype.useControl=function(control)
       {
         this.dropOut(this.getPlayerId(control.input.color));
       }
-      control.input.type="disabled";
+      if(!this.giveAiOnReplace)
+      {
+        control.input.type="disabled";
+        control.fighter.health=0;
+      }
+      else
+      {
+        control.input={};
+        control.input={
+          "type":"ai",
+          "id":this.aiId++
+        };
+      }
     }
     else
     {
@@ -642,7 +702,19 @@ RomboFight.prototype.useControl=function(control)
     if(control.input.pressed.indexOf(27)>-1)
     {
       this.dropOut(this.getPlayerId(control.input.color));
-      control.input.type="disabled";
+      if(!this.giveAiOnReplace)
+      {
+        control.input.type="disabled";
+        control.fighter.health=0;
+      }
+      else
+      {
+        control.input={};
+        control.input={
+          "type":"ai",
+          "id":this.aiId++
+        };
+      }
     }
     var x=0;
     var y=0;
@@ -1100,7 +1172,7 @@ RomboFight.prototype.hitFighter=function(fighter,missile,shieldEffect)
   }
 }
 
-//See what have you done
+//And this is the part where we kill them
 RomboFight.prototype.sendToAsgard=function()
 {
   this.deadFighters.sort(function(a, b){return b-a});
@@ -1116,7 +1188,7 @@ RomboFight.prototype.sendToAsgard=function()
   }
 }
 
-//At least take care of the dead bodies
+//Bad! Asgard is not the place where we send our dead!
 RomboFight.prototype.moveCorpse=function(corpse)
 {
   corpse.opacity-=this.options.corpseDespawnRate;
@@ -1162,7 +1234,17 @@ RomboFight.prototype.spawnPlayer=function(player)
   if(options.support) { this.addWeapon(fighter,options.support,2); }
   if(options.ultra) { this.addWeapon(fighter,options.ultra,3); }
   
-  var input=this.getInputByPlayer(player);
+  if(player!=this.colors.length)
+  {
+    var input=this.getInputByPlayer(player);
+  }
+  else
+  {
+    var input={
+      "type":"ai",
+      "id":this.aiId++
+    };
+  }
   if(input)
   {
     this.takeControl(fighter,input);
@@ -1251,12 +1333,16 @@ RomboFight.prototype.collideFighters=function(fighter1,fighter2,collisionRatio)
 }
 
 //So I considered to draw something funny instead
-RomboFight.prototype.drawHud=function(player)
+RomboFight.prototype.drawHud=function(player,slot)
 {
-  var hudOrigin=this.point(this.options.hudSize*(player+0.5)*this.options.hudGap,this.canvas.height-this.options.hudSize*this.options.hudGap/2);
+  var hudOrigin=this.point(this.options.hudSize*(Number(slot)+0.5)*this.options.hudGap,this.canvas.height-this.options.hudSize*this.options.hudGap/2);
   var hudColor=this.getColorOf(player);
   var control=this.getControlOfPlayer(player);
   var fighter=control.fighter;
+  this.context.beginPath();
+  this.context.arc(hudOrigin.x,hudOrigin.y,this.options.hudSize/2,0,Math.PI*2);
+  this.context.fillStyle=this.multiplyColor("#000000",this.options.hudOpacity);
+  this.context.fill();
   if(control && fighter)
   {
     this.context.lineWidth=this.options.hudWidth;
@@ -1300,6 +1386,7 @@ RomboFight.prototype.drawHud=function(player)
   this.context.fillText(text,hudOrigin.x,hudOrigin.y+fontSize/3);
 }
 
+//But not with this function. So no comments for you, figure out yourself.
 RomboFight.prototype.spawnSides=function(light,dark)
 {
   if(light)
@@ -1311,13 +1398,15 @@ RomboFight.prototype.spawnSides=function(light,dark)
   }
   if(dark)
   {
-    for(var i=0;i<this.inputs.length*this.options.enemyPerPlayer;i++)
+    var sithCount=this.countSide(false); //Anything else than 2 is invalid
+    for(var i=0;i<this.inputs.length*this.options.enemyPerPlayer-sithCount;i++)
     {
       this.spawnPlayer(this.colors.length);
     }
   }
 }
 
+//True = light side, false = dark side  //That's racist
 RomboFight.prototype.checkSide=function(light)
 {
   var side=false;
@@ -1329,6 +1418,160 @@ RomboFight.prototype.checkSide=function(light)
     }
   }
   return side;
+}
+
+//Next function will be called checkMate...
+RomboFight.prototype.checkMatch=function()
+{
+  if(!this.inputs.length)
+  {
+    return false; //If no one is here, don't do anything
+  }
+  
+  var match=this.checkSide(true) && this.checkSide(false);
+  
+  if(match)
+  {
+    if(this.stats.matchless)
+    {
+      this.stats.matchless=0;
+    }
+  }
+  else
+  {
+    this.stats.matchless++;
+  }
+  
+  if(this.stats.matchless>this.options.matchDelay)
+  {
+    //Okay, it looks like somebody just won.
+    var lightside=this.checkSide(true);
+    var darkside=this.checkSide(false);
+    
+    if(!lightside && !darkside)
+    {
+      this.stats.wins++; //Continue being racist.
+      this.stats.loses++; //Dark side is not side
+      this.notify('Tie round');
+      this.spawnSides(true,true);
+    }
+    else if(lightside)
+    {
+      this.stats.wins++;
+      this.notify('You won this round');
+      this.spawnSides(this.options.respawnWinner,true);
+    }
+    else if(darkside)
+    {
+      this.stats.loses++;
+      this.notify('You lose this round');
+      this.spawnSides(true,this.options.respawnWinner);
+    }
+  }
+}
+
+//Utility functions. Again.
+RomboFight.prototype.countSide=function(light)
+{
+  var count=0;
+  for(var i in this.fighters)
+  {
+    if(this.fighters[i].jedi==light)
+    {
+      count++;
+    }
+  }
+  return count;
+}
+
+//Boring. Let's write an AI instead.
+RomboFight.prototype.rollAi=function()
+{
+  var tickdata={
+    "fighters":this.cloneObject(this.fighters),
+    "missiles":this.cloneObject(this.missiles),
+    "controls":[]
+  };
+  for(var i in tickdata.missiles)
+  {
+    tickdata.missiles[i].sender=this.fighters.indexOf(this.missiles[i].sender);
+  }
+  for(var i in this.controls)
+  {
+    if(this.controls[i].input.type=="ai")
+    {
+      var control=this.cloneObject(this.controls[i]);
+      control.fighter=this.fighters.indexOf(this.controls[i].fighter);
+      tickdata.controls.push(control);
+    }
+  }
+  this.aiTicks.unshift(tickdata);
+  if(this.aiTicks.length>this.options.aiDelay)
+  {
+    this.callAi(this.aiTicks[this.options.aiDelay-1]);
+    this.aiTicks.splice(this.options.aiDelay-1,Infinity);
+  }
+}
+
+//This function gives the AI an outdated data about the current field.
+RomboFight.prototype.callAi=function(tickdata)
+{
+  this.ai.postMessage(tickdata);
+}
+
+//And this is the callback to press the buttons of AI
+RomboFight.prototype.reactToAi=function(response)
+{
+  var data=response.data;
+  if(data.type=="debug")
+  {
+    console.log(data.message);
+  }
+  else if(data.type="control")
+  {
+    for(var i in data.controls)
+    {
+      var control=this.getAiControl(data.controls[i].input.id);
+      control.dir.x=data.controls[i].dir.x;
+      control.dir.y=data.controls[i].dir.y;
+      control.primary=data.controls[i].primary;
+      control.secondary=data.controls[i].secondary;
+      control.support=data.controls[i].support;
+      control.ultra=data.controls[i].ultra;
+    }
+  }
+}
+
+//Utility functions for the win
+RomboFight.prototype.getAiControl=function(id)
+{
+  for(var i in this.controls)
+  {
+    if(this.controls[i].input.type=="ai" && this.controls[i].input.id==id)
+    {
+      return this.controls[i];
+    }
+  }
+  return false;
+}
+
+//Why do I need to clean up after everything? Why can't the code have OCD?
+RomboFight.prototype.cleanupAi=function()
+{
+  var removables=[];
+  for(var i in this.controls)
+  {
+    var control=this.controls[i];
+    if(control.input.type=="ai" && control.fighter.health<=0)
+    {
+      removables.push(i);
+    }
+  }
+  removables.sort(function(a, b){return b-a});
+  for(var i in removables)
+  {
+    this.controls.splice(removables[i],1);
+  }
 }
 
 //These comments gone a little bit useless...

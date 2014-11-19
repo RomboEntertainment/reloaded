@@ -1102,14 +1102,19 @@ RomboEngine.prototype.removeNotif=function(div)
 
 //BAMM, utility code
 //Project Universal Recursive Object Cloner With Self Documenting Name (UROCWSDN)
-RomboEngine.prototype.cloneObject=function(object)
+RomboEngine.prototype.cloneObject=function(object,stack)
 {
+  if(!stack)
+  {
+    stack=[];
+  }
+  stack.push(object);
   if(object.__proto__==Object.prototype)
   {
     var newObject={};
     for(var i in object)
     {
-      newObject[i]=this.cloneKey(object[i]);
+      newObject[i]=this.cloneKey(object[i],stack);
     }
   }
   else if(object.__proto__==Array.prototype)
@@ -1117,7 +1122,7 @@ RomboEngine.prototype.cloneObject=function(object)
     var newObject=[];
     for(var i=0;i<object.length;i++)
     {
-      newObject[i]=this.cloneKey(object[i]);
+      newObject[i]=this.cloneKey(object[i],stack);
     }
   }
   else
@@ -1128,11 +1133,15 @@ RomboEngine.prototype.cloneObject=function(object)
 }
 
 //Project Universal Recursive Object Cloner With Self Documenting Name Object Recursion Detection Unit (UROCWSDN-ORDU)
-RomboEngine.prototype.cloneKey=function(object)
+RomboEngine.prototype.cloneKey=function(object,stack)
 {
-  if(Array(Object.prototype,Array.prototype).indexOf(object.__proto__)>-1)
+  if(stack.indexOf(object)>-1)
   {
-    return this.cloneObject(object);
+    return null; //Stack overflow prevention
+  }
+  else if(Array(Object.prototype,Array.prototype).indexOf(object.__proto__)>-1)
+  {
+    return this.cloneObject(object,stack);
   }
   else
   {
@@ -1324,7 +1333,7 @@ RomboEngine.prototype.stepSelection=function(player,dir)
   }
   
   //0-up, 1-down, 2-left, 3-right //Wow. That was actually helpful. Maybe I'll delete it someday.
-  var selection=game.getSelectionOf(player);
+  var selection=this.getSelectionOf(player);
   var pos=selection.selected.pos;
   var minDistance=Infinity;
   var secondaryMinDistance=Infinity;
@@ -1681,7 +1690,7 @@ RomboEngine.prototype.isNeoReady=function()
 //There was too much code that actually does something. Let me write a utility function.
 RomboEngine.prototype.isSelectableFor=function(element,player)
 {
-  var input=game.getInputByPlayer(player);
+  var input=this.getInputByPlayer(player);
   var selectable=element.selectable;
   if(element.inputTypes && element.inputTypes.indexOf(input.type)==-1)
   {
