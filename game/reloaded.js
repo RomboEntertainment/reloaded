@@ -17,6 +17,13 @@ RomboFight=function(input)
       "name":"main",
       "elements":[
         {
+          "type":"image",
+          "selectable":false,
+          "image":this.loadImage("reloaded.png"),
+          "label":"",
+          "pos":{"x":0,"y":-248}
+        },
+        {
           "type":"button",
           "selectable":true,
           "label":"Local game",
@@ -103,7 +110,7 @@ RomboFight=function(input)
         }
         if(agreement)
         {
-          if(choices[0].name=="locgame")
+          if(choices[0] && choices[0].name=="locgame")
           {
             this.startGame();
           }
@@ -144,6 +151,7 @@ RomboFight=function(input)
   this.controls=[];
   this.missiles=[]; //Pretty nice pattern here... too nice it caused OCD
   this.corpses=[];
+  this.fighterId=0;
   
   //This is for the AI
   this.aiTicks=[];
@@ -333,7 +341,7 @@ RomboFight=function(input)
   //Some additional options
   this.options.missileDetail=3;
   this.options.minHeat=0.25;
-  this.options.maxHeat=2.5;
+  this.options.maxHeat=5;
   this.options.fighterCooldown=0.01;
   this.options.friendlyFire=false;
   this.options.regenerationFactor=0.005;
@@ -364,7 +372,7 @@ RomboFight=function(input)
   this.options.enemyPerPlayer=1;
   this.options.matchDelay=60;
   this.options.respawnWinner=true;
-  this.options.aiDelay=20;
+  this.options.aiDelay=5;
   this.options.aiDelayRatio=1;
   this.options.aiScript="game/ai/original.js";
   
@@ -375,11 +383,14 @@ RomboFight=function(input)
     this.stats.players.push({
       "hits":0,
       "kills":0,
-      "assist":0
+      "assist":0,
+      "teamkills":0
     });
   }
   this.stats.ingame=false;
   this.stats.matchless=0;
+  
+  this.tickId=0;
 }
 //Inheritance
 RomboFight.prototype=RomboEngine.prototype;
@@ -399,15 +410,69 @@ RomboFight.prototype.startGame=function()
   this.stats.wins=0;
   this.stats.loses=0;
   
-  this.ai=new Worker(this.options.aiScript);
+  var time=new Date().getTime();
+  this.sithAi=new Worker(this.options.aiScript+"?"+time);
+  this.jediAi=new Worker(this.options.aiScript+"?"+time);
   
   var self=this;
-  this.ai.onmessage=function(event)
+  this.sithAi.onmessage=function(event)
   {
-    self.reactToAi.call(self,event);
+    self.reactToAi.call(self,event,false);
+  }
+  this.jediAi.onmessage=function(event)
+  {
+    self.reactToAi.call(self,event,true);
   }
   
+  var weapons=[];
+  for(var i in this.weapons)
+  {
+    weapons[i]={
+      "barrels":this.cloneObject(this.weapons[i].barrels),
+      "effects":this.cloneObject(this.weapons[i].effects),
+      "heat":this.weapons[i].heat,
+      "freedomPerMinute":this.weapons[i].freedomPerMinute
+    };
+  }
+  var initMessage={
+    "type":"init",
+    "options":this.options,
+    "weapons":weapons,
+    "weaponSlots":this.weaponSlots
+  };
+  
+  this.sithAi.postMessage(initMessage);
+  this.jediAi.postMessage(initMessage);
+  
   this.spawnSides(true,true);
+}
+
+//It is.
+RomboFight.prototype.endGame=function()
+{
+  this.sithAi.terminate();
+  this.jediAi.terminate(); //Execute Order 66
+  
+  //this.checkMate(); //Only in multiplayer or fixed round match
+  
+  this.fighters=[];
+  this.missiles=[];
+  this.controls=[];
+  this.corpses=[];
+  this.aiTicks=[];
+  
+  this.stats.players=[];
+  for(var i=0;i<=this.colors.length;i++)
+  {
+    this.stats.players.push({
+      "hits":0,
+      "kills":0,
+      "assist":0,
+      "teamkills":0
+    });
+  }
+  
+  this.createMenu(this.menuSystem.mainMenu);
 }
 
 //The most underrated code ever.
@@ -465,6 +530,7 @@ RomboFight.prototype.gameTick=function()
     }
     this.stats.ingame=false;
   }
+  this.tickId++;
 }
 
 //Sorry, I wasn't right. If anything becomes slow, they blame THIS code.
@@ -527,15 +593,20 @@ RomboFight.prototype.spawnFighter=function(fighterdata)
     "size":size,
     "sizeRatio":0.2,
     "health":1,
-    "heat":0,
-    "effects":[],
+    "heat":this.options.maxHeat,
+    "effects":[{
+      "type":"shield",
+      "strength":this.options.maxHeat-this.options.minHeat,
+      "fallback":this.options.fighterCooldown
+    }],
     "player":fighterdata.player,
     "weapons":[],
     "weaponsToFire":[],
     "jedi":(fighterdata.jedi!==undefined) ? fighterdata.jedi : true, //This specifies the side it'll fight on if you don't understand for some reason
-    "overheat":false,
+    "overheat":true,
     "inCollision":false,
-    "lastHit":false
+    "lastHit":false,
+    "id":this.fighterId++
   };
   this.fighters.push(fighter);
   return fighter;
@@ -1362,7 +1433,7 @@ RomboFight.prototype.drawHud=function(player,slot)
     {
       var effect=Math.min(this.getEffect(fighter,effectList[i]),1);
       this.context.beginPath();
-      this.context.arc(hudOrigin.x,hudOrigin.y,this.options.hudSize/2-this.options.hudWidth*2*(i+2),Math.PI*1.5,Math.PI*1.5+Math.PI*2*effect);
+      this.context.arc(hudOrigin.x,hudOrigin.y,Math.max(this.options.hudSize/2-this.options.hudWidth*2*(i+2),0),Math.PI*1.5,Math.PI*1.5+Math.PI*2*effect);
       this.context.strokeStyle=["#dddddd","#00e7e7","#e76e00"][["shield","bumper"].indexOf(effectList[i])+1];
       this.context.stroke();
     }
@@ -1425,7 +1496,7 @@ RomboFight.prototype.checkMatch=function()
 {
   if(!this.inputs.length)
   {
-    return false; //If no one is here, don't do anything
+    this.endGame(); //If no one is here, the game ends immediately
   }
   
   var match=this.checkSide(true) && this.checkSide(false);
@@ -1445,26 +1516,41 @@ RomboFight.prototype.checkMatch=function()
   if(this.stats.matchless>this.options.matchDelay)
   {
     //Okay, it looks like somebody just won.
-    var lightside=this.checkSide(true);
-    var darkside=this.checkSide(false);
-    
-    if(!lightside && !darkside)
+    this.checkMate(true);
+  }
+}
+
+//As I promised
+RomboFight.prototype.checkMate=function(spawn)
+{
+  var lightside=this.checkSide(true);
+  var darkside=this.checkSide(false);
+  
+  if(!lightside && !darkside)
+  {
+    this.stats.wins++; //Continue being racist.
+    this.stats.loses++; //Dark side is not side
+    this.notify('Tie round');
+    if(spawn)
     {
-      this.stats.wins++; //Continue being racist.
-      this.stats.loses++; //Dark side is not side
-      this.notify('Tie round');
       this.spawnSides(true,true);
     }
-    else if(lightside)
+  }
+  else if(lightside)
+  {
+    this.stats.wins++;
+    this.notify('You won this round');
+    if(spawn)
     {
-      this.stats.wins++;
-      this.notify('You won this round');
       this.spawnSides(this.options.respawnWinner,true);
     }
-    else if(darkside)
+  }
+  else if(darkside)
+  {
+    this.stats.loses++;
+    this.notify('You lose this round');
+    if(spawn)
     {
-      this.stats.loses++;
-      this.notify('You lose this round');
       this.spawnSides(true,this.options.respawnWinner);
     }
   }
@@ -1488,23 +1574,63 @@ RomboFight.prototype.countSide=function(light)
 RomboFight.prototype.rollAi=function()
 {
   var tickdata={
-    "fighters":this.cloneObject(this.fighters),
-    "missiles":this.cloneObject(this.missiles),
-    "controls":[]
+    "fighters":[],
+    "missiles":[],
+    "controls":[],
+    "type":"tick",
+    "field":{
+      "width":this.canvas.width,
+      "height":this.canvas.height
+    },
+    "tick":this.tickId
   };
-  for(var i in tickdata.missiles)
+  
+  for(var i in this.fighters)
   {
-    tickdata.missiles[i].sender=this.fighters.indexOf(this.missiles[i].sender);
+    tickdata.fighters.push({
+      "effects":this.cloneObject(this.fighters[i].effects),
+      "health":this.fighters[i].health,
+      "heat":this.fighters[i].heat,
+      "id":this.fighters[i].id,
+      "inCollision":this.fighters[i].inCollision,
+      "jedi":this.fighters[i].jedi,
+      "lastHit":this.fighters[i].lastHit.id,
+      "overheat":this.fighters[i].overheat,
+      "pos":this.cloneObject(this.fighters[i].pos),
+      "speed":this.cloneObject(this.fighters[i].speed),
+      "size":this.cloneObject(this.fighters[i].size),
+      "sizeRatio":this.fighters[i].sizeRatio,
+      "weapons":this.cloneObject(this.fighters[i].weapons)
+    });
+  }
+  for(var i in this.missiles)
+  {
+    if(this.missiles[i].active)
+    {
+      tickdata.missiles.push({
+        "pos":this.cloneObject(this.missiles[i].pos),
+        "speed":this.cloneObject(this.missiles[i].speed),
+        "sender":this.missiles[i].sender.id,
+        "damage":this.missiles[i].damage
+      });
+    }
   }
   for(var i in this.controls)
   {
-    if(this.controls[i].input.type=="ai")
+    if(this.controls[i].input.type=="ai" && this.controls[i].fighter.health>0)
     {
       var control=this.cloneObject(this.controls[i]);
-      control.fighter=this.fighters.indexOf(this.controls[i].fighter);
+      control.fighter=this.controls[i].fighter.id;
       tickdata.controls.push(control);
     }
   }
+  
+  if(JSON.stringify(this.options)!=JSON.stringify(this.prevOptions))
+  {
+    this.prevOptions=this.cloneObject(this.options);
+    tickdata.options=this.cloneObject(this.options);
+  }
+  
   this.aiTicks.unshift(tickdata);
   if(this.aiTicks.length>this.options.aiDelay)
   {
@@ -1516,28 +1642,73 @@ RomboFight.prototype.rollAi=function()
 //This function gives the AI an outdated data about the current field.
 RomboFight.prototype.callAi=function(tickdata)
 {
-  this.ai.postMessage(tickdata);
+  tickdata.delay=this.tickId-tickdata.tick;
+  
+  var sithdata=this.cloneObject(tickdata);
+  var jedidata=this.cloneObject(tickdata);
+  sithdata.controls=[];
+  jedidata.controls=[];
+  
+  var data;
+  for(var i in tickdata.controls)
+  {
+    data=tickdata.controls[i].fighter.jedi ? jedidata : sithdata;
+    data.controls.push(tickdata.controls[i]);
+  }
+  
+  for(var i in jedidata.fighters)
+  {
+    jedidata.fighters[i].pos.x*=-1;
+    jedidata.fighters[i].pos.y*=-1;
+    jedidata.fighters[i].speed.x*=-1;
+    jedidata.fighters[i].speed.y*=-1;
+    jedidata.fighters[i].jedi=!jedidata.fighters[i].jedi;
+  }
+  for(var i in jedidata.missiles)
+  {
+    jedidata.missiles[i].pos.x*=-1;
+    jedidata.missiles[i].pos.y*=-1;
+    jedidata.missiles[i].speed.x*=-1;
+    jedidata.missiles[i].speed.y*=-1;
+  }
+  for(var i in jedidata.controls)
+  {
+    jedidata.controls[i].dir.x*=-1;
+    jedidata.controls[i].dir.y*=-1;
+  }
+  
+  if(this.options.logAiData)
+  {
+    console.log(sithdata,jedidata);
+    this.options.logAiData=false;
+  }
+  
+  this.sithAi.postMessage(sithdata);
+  this.jediAi.postMessage(jedidata);
 }
 
 //And this is the callback to press the buttons of AI
-RomboFight.prototype.reactToAi=function(response)
+RomboFight.prototype.reactToAi=function(response,jedi)
 {
-  var data=response.data;
-  if(data.type=="debug")
+  if(Array("game").indexOf(this.mode)>-1) //I should make an array for game modes
   {
-    console.log(data.message);
-  }
-  else if(data.type="control")
-  {
-    for(var i in data.controls)
+    var data=response.data;
+    if(data.type=="debug")
     {
-      var control=this.getAiControl(data.controls[i].input.id);
-      control.dir.x=data.controls[i].dir.x;
-      control.dir.y=data.controls[i].dir.y;
-      control.primary=data.controls[i].primary;
-      control.secondary=data.controls[i].secondary;
-      control.support=data.controls[i].support;
-      control.ultra=data.controls[i].ultra;
+      console.log(data.message);
+    }
+    else if(data.type=="control")
+    {
+      for(var i in data.controls)
+      {
+        var control=this.getAiControl(data.controls[i].input.id);
+        control.dir.x=data.controls[i].dir.x*(jedi ? -1 : 1);
+        control.dir.y=data.controls[i].dir.y*(jedi ? -1 : 1);
+        control.primary=data.controls[i].primary;
+        control.secondary=data.controls[i].secondary;
+        control.support=data.controls[i].support;
+        control.ultra=data.controls[i].ultra;
+      }
     }
   }
 }

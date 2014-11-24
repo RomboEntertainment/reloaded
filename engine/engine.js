@@ -949,6 +949,10 @@ RomboEngine.prototype.createMenu=function(menu)
         currentElement.appendChild(selectbox);
         element.selectbox=selectbox;
       }
+      else
+      {
+        currentElement.style.opacity="1";
+      }
       currentElement.style.left=(element.pos.x-image.width/2)+"px";
       currentElement.style.top=(element.pos.y-image.height/2)+"px";
     }
@@ -1129,6 +1133,7 @@ RomboEngine.prototype.cloneObject=function(object,stack)
   {
     newObject=object;
   }
+  stack.splice(stack.indexOf(object),1);
   return newObject;
 }
 
@@ -1138,6 +1143,10 @@ RomboEngine.prototype.cloneKey=function(object,stack)
   if(stack.indexOf(object)>-1)
   {
     return null; //Stack overflow prevention
+  }
+  else if(object===undefined)
+  {
+    return undefined;
   }
   else if(Array(Object.prototype,Array.prototype).indexOf(object.__proto__)>-1)
   {
