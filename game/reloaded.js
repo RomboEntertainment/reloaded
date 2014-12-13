@@ -404,7 +404,7 @@ RomboFight=function(input)
 RomboFight.prototype=RomboEngine.prototype;
 
 //The most important thing ever
-RomboFight.prototype.version=0.01;
+RomboFight.prototype.version=0.02;
 RomboFight.prototype.versionStatus="Alpha";
 
 //Hook the main menu from the engine
@@ -1764,9 +1764,10 @@ RomboFight.prototype.drawStandings=function()
   var mvp=false;
   var mvpkillz=-1; //u need skillz to get killz othrwize u get rekt
   
-  for(var i=0;i<this.colors.length;i++)
+  for(var i=0;i<this.inputs.length;i++)
   {
-    var killz=this.stats.players[i].kills;
+    var id=this.getPlayerId(this.inputs[i].color);
+    var killz=this.stats.players[id].kills;
     if(killz>mvpkillz)
     {
       mvp=i;
@@ -1774,11 +1775,11 @@ RomboFight.prototype.drawStandings=function()
     }
     else if(killz==mvpkillz)
     {
-      mvp=false;
+      mvp=-1;
     }
   }
   
-  if(mvp===false)
+  if(mvp==-1)
   {
     this.context.fillStyle="#dddddd";
   }

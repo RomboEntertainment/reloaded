@@ -503,13 +503,13 @@ RomboEngine=function(input)
 };
 
 //Better clear this before doing anything
-RomboEngine.prototype.version=0.01;
+RomboEngine.prototype.version=0.02;
 
 //No, create it now, don't let the publishers live
 RomboEngine.prototype.initMenu=function(gamepadsEnabled)
 {
   var initMenu=document.createElement('div');
-  initMenu.innerHTML="Click or press any button on your selected input device<br><small>"+(gamepadsEnabled ? "Keyboard and gamepads are" : "Only keyboard is")+" supported</small>";
+  initMenu.innerHTML="Press any button on your selected input device<br><small>"+(gamepadsEnabled ? "Keyboard and gamepads are" : "Only keyboard is")+" supported</small>";
   initMenu.style.textAlign="center";
   this.applyMenu(initMenu,"init");
 }
