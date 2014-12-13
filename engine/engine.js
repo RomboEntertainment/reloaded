@@ -502,6 +502,9 @@ RomboEngine=function(input)
   return this;
 };
 
+//Better clear this before doing anything
+RomboEngine.prototype.version=0.01;
+
 //No, create it now, don't let the publishers live
 RomboEngine.prototype.initMenu=function(gamepadsEnabled)
 {
@@ -674,13 +677,24 @@ RomboEngine.prototype.checkDropInGamepads=function()
       }
       if(gamepad.timestamp>checkable.timestamp && !this.getInputGamepadByIndex.call(this,i))
       {
-        count+=this.dropIn({
-          "type":"gamepad",
-          "index":i,
-          "settings":[],
-          "deviceName":gamepad.id.substring(0,gamepad.id.lastIndexOf("(")),
-          "remap":[0,1,2,3]
-        });
+        var valid=false;
+        for(var j in gamepad.buttons)
+        {
+          if(gamepad.buttons[j].pressed)
+          {
+            valid=true;
+          }
+        }
+        if(valid)
+        {
+          count+=this.dropIn({
+            "type":"gamepad",
+            "index":i,
+            "settings":[],
+            "deviceName":gamepad.id.substring(0,gamepad.id.lastIndexOf("(")),
+            "remap":[0,1,2,3]
+          });
+        }
       }
     }
     else

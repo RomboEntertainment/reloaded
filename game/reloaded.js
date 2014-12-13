@@ -96,6 +96,13 @@ RomboFight=function(input)
           {
             this.dropOut(player);
           }
+        },
+        {
+          "type":"text",
+          "selectable":false,
+          "label":"RomboFight Reloaded version "+this.version+" "+this.versionStatus+". Powered by RomboEngine "+this.__proto__.version,
+          "fontSize":12,
+          "pos":{"x":0,"y":280}
         }
       ],
       "onChoose":function(choices)
@@ -369,6 +376,7 @@ RomboFight=function(input)
   this.options.hudOffset=5;
   this.options.hudAngle=0.4;
   this.options.hudOpacity=0.75;
+  this.options.hudStandings=42; //Of course
   this.options.enemyPerPlayer=1;
   this.options.matchDelay=60;
   this.options.respawnWinner=true;
@@ -394,6 +402,10 @@ RomboFight=function(input)
 }
 //Inheritance
 RomboFight.prototype=RomboEngine.prototype;
+
+//The most important thing ever
+RomboFight.prototype.version=0.01;
+RomboFight.prototype.versionStatus="Alpha";
 
 //Hook the main menu from the engine
 RomboFight.prototype.gameMenu=function()
@@ -562,6 +574,7 @@ RomboFight.prototype.gameDraw=function()
       var player=this.getPlayerId(this.inputs[i].color);
       this.drawHud(player,i);
     }
+    this.drawStandings();
     
     this.notifholder.left="";
   }
@@ -728,7 +741,7 @@ RomboFight.prototype.useControl=function(control)
       {
         this.dropOut(this.getPlayerId(control.input.color));
       }
-      if(!this.giveAiOnReplace)
+      if(!this.options.giveAiOnReplace)
       {
         control.input.type="disabled";
         control.fighter.health=0;
@@ -1743,6 +1756,46 @@ RomboFight.prototype.cleanupAi=function()
   {
     this.controls.splice(removables[i],1);
   }
+}
+
+//It's good to know that thing. Another fact: I'm not funny anymore. I never was. It's just boring.
+RomboFight.prototype.drawStandings=function()
+{
+  var mvp=false;
+  var mvpkillz=-1; //u need skillz to get killz othrwize u get rekt
+  
+  for(var i=0;i<this.colors.length;i++)
+  {
+    var killz=this.stats.players[i].kills;
+    if(killz>mvpkillz)
+    {
+      mvp=i;
+      mvpkillz=killz;
+    }
+    else if(killz==mvpkillz)
+    {
+      mvp=false;
+    }
+  }
+  
+  if(mvp===false)
+  {
+    this.context.fillStyle="#dddddd";
+  }
+  else
+  {
+    this.context.fillStyle="#"+this.colors[mvp];
+  }
+  
+  this.context.font=this.options.hudStandings+"px Ubuntu";
+  this.context.textAlign="right";
+  this.context.fillText(this.stats.wins,this.canvas.width/2-this.options.hudStandings*0.25,this.options.hudStandings*1.5);
+  this.context.fillStyle="#dddddd";
+  this.context.textAlign="center";
+  this.context.fillText(":",this.canvas.width/2,this.options.hudStandings*1.5);
+  this.context.fillStyle="#"+game.enemyColor.color;
+  this.context.textAlign="left";
+  this.context.fillText(this.stats.loses,this.canvas.width/2+this.options.hudStandings*0.25,this.options.hudStandings*1.5);
 }
 
 //These comments gone a little bit useless...

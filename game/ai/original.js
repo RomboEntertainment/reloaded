@@ -5,7 +5,7 @@
 var options, weapons, fighters, missiles, field, weaponSlots;
 var controls=[];
 
-var lastData, lastFighters, lastWorthy, lastEstimate;
+var lastData, lastFighters, lastWorthy, lastEstimate, lastEnemy;
 
 function getControlById(id)
 {
@@ -60,17 +60,14 @@ function findNewEnemy(control)
     var valueStep=0;
     for(var i in values)
     {
-      if(valueStep+values[i]>=enemy)
+      if(valueStep+values[i]>enemy)
       {
-        return Number(i);
+        return fighters[i].id;
       }
       valueStep+=values[i];
     }
   }
-  else
-  {
-    return -1;
-  }
+  return -1;
 }
 
 function getNewTarget(control)
@@ -78,6 +75,7 @@ function getNewTarget(control)
   var target={"x":0,"y":0};
   var fighter=getFighterById(control.fighter);
   var enemy=getFighterById(control.enemy);
+  lastEnemy=enemy;
   if(enemy)
   {
     var worthToAttack=
@@ -90,11 +88,11 @@ function getNewTarget(control)
     
     if(worthToAttack>0.5)
     {
-      target.x=enemy.pos.x+Math.random()*15-7.5;
+      target.x=enemy.pos.x+Math.random(); //15-7.5; //That magic shall not pass
       target.y=enemy.pos.y*Math.random();
       if(!control.attacking)
       {
-        console.log("AI "+control.id+" is attacking "+control.enemy);
+        //console.log("AI "+control.id+" is attacking "+control.enemy);
       }
       control.attacking=true;
       return target;
@@ -104,7 +102,7 @@ function getNewTarget(control)
   target.y=Math.random()*field.height;
   if(control.attacking)
   {
-    console.log("AI "+control.id+" is evading");
+    //console.log("AI "+control.id+" is evading");
   }
   control.attacking=false;
   return target;
@@ -165,7 +163,7 @@ function getWeapon(fighter,slot)
 
 function estimateShot(pos,speed,target,threshold)
 {
-  var lastEstimate=[pos,speed,target,threshold];  
+  lastEstimate=[pos,speed,target,threshold];  
   
   if(speed.y==0)
   {
@@ -248,10 +246,11 @@ onmessage=function(event) {
         var speed=brakeDistance ? Math.min(distance/brakeDistance,1) : 1;
         var xRatio=brakeDistance ? Math.abs(brakeLength.x/brakeDistance) : 1;
         var yRatio=brakeDistance ? Math.abs(brakeLength.y/brakeDistance) : 1;
-        response.controls[i].dir.x=((fighter.pos.x+fighter.speed.x*data.delay+brakeLength.x<control.target.x) ? speed : -speed)*xRatio;
-        response.controls[i].dir.y=((fighter.pos.y+fighter.speed.y*data.delay+brakeLength.y<control.target.y) ? speed : -speed)*yRatio;
+        response.controls[i].dir.x=((fighter.pos.x+fighter.speed.x*data.delay+brakeLength.x*3<control.target.x) ? speed : -speed)*xRatio; //3 is a magic number here. Much better than pi.
+        response.controls[i].dir.y=((fighter.pos.y+fighter.speed.y*data.delay+brakeLength.y*3<control.target.y) ? speed : -speed)*yRatio; //Just kidding, no idea which number would be correct...
         
         var shootPrimary=false;
+        var shootSecondary=false;
         var enemy=getFighterById(control.enemy);
         if(enemy)
         {
@@ -259,26 +258,11 @@ onmessage=function(event) {
           var pos={"x":fighter.pos.x+weaponSlots[0].x*fighter.sizeRatio,"y":fighter.pos.y+weaponSlots[0].y*fighter.sizeRatio};
           var speed={"x":fighter.speed.x*0.25,"y":fighter.speed.y*0.25+weapons[primary.type].barrels[primary.barrelID].shotPower};
           var target=enemy.pos;
-          var threshold=enemy.size.x*3;/*
-          if(isNaN(pos.x) || isNaN(pos.y))
-          {
-            console.log('pos',fighter.pos.x,weaponSlots[0].x,fighter.sizeRatio);
-          }
-          if(isNaN(speed.x) || isNaN(speed.y))
-          {
-            console.log('speed',fighter.speed.y,weapons[primary.type].barrels[primary.barrelID].shotPower);
-          }
-          if(isNaN(target.x) || isNaN(target.y))
-          {
-            console.log('target',enemy.pos,weaponSlots[0].x,fighter.sizeRatio);
-          }
-          if(isNaN(threshold))
-          {
-            console.log('threshold',enemy.size.x);
-          }*/
-          shootPrimary=estimateShot(pos,speed,target,threshold)
+          shootPrimary=estimateShot(pos,speed,target,enemy.size.x*3);
+          shootSecondary=estimateShot(pos,speed,target,enemy.size.x);
         }
         response.controls[i].primary=shootPrimary;
+        response.controls[i].secondary=shootSecondary;
       }
     }
     
@@ -306,7 +290,7 @@ onmessage=function(event) {
     }
     if(data.action=="thor")
     {
-      console.log(lastWorthy);
+      console.log(lastEnemy,lastWorthy);
     }
     if(data.action=="guess")
     {

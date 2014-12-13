@@ -1,7 +1,7 @@
 /*@import url(http://fonts.googleapis.com/css?family=Ubuntu);*/
 @font-face {
     font-family: "Ubuntu";
-    src: local("Ubuntu"), url("engine/Ubuntu-R.ttf") format("truetype");
+    src: local("Ubuntu"), url("Ubuntu-R.ttf") format("truetype");
 }
 
 .rombo-engine-gameholder
