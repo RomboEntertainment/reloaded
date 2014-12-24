@@ -157,6 +157,7 @@ RomboFight=function(input)
   this.fighters=[];
   this.controls=[];
   this.missiles=[]; //Pretty nice pattern here... too nice it caused OCD
+  this.aiPoints=[];
   this.corpses=[];
   this.fighterId=0;
   
@@ -351,6 +352,7 @@ RomboFight=function(input)
   this.options.maxHeat=5;
   this.options.fighterCooldown=0.01;
   this.options.friendlyFire=false;
+  this.options.friendlyHit=false;
   this.options.regenerationFactor=0.005;
   this.options.corpseDespawnRate=0.01;
   this.options.players=[];
@@ -383,6 +385,7 @@ RomboFight=function(input)
   this.options.aiDelay=5;
   this.options.aiDelayRatio=1;
   this.options.aiScript="game/ai/original.js";
+  this.options.visualizeAi=false;
   
   //And statistics
   this.stats.players=[];
@@ -472,6 +475,7 @@ RomboFight.prototype.endGame=function()
   this.controls=[];
   this.corpses=[];
   this.aiTicks=[];
+  this.aiPoints=[];
   
   this.stats.players=[];
   for(var i=0;i<=this.colors.length;i++)
@@ -495,16 +499,21 @@ RomboFight.prototype.gameTick=function()
   {
     this.rollAi(); //They see me rollin'...
     
+    //Controls
     for(var i=0;i<this.controls.length;i++)
     {
       this.useControl(this.controls[i]);
     }
+    
+    //Corpses
     this.removableCorpses=[];
     for(var i=0;i<this.corpses.length;i++)
     {
       this.moveCorpse(this.corpses[i]);
     }
     this.buryCorpses();
+    
+    //Fighters
     this.deadFighters=[];
     for(var i=0;i<this.fighters.length;i++)
     {
@@ -516,7 +525,9 @@ RomboFight.prototype.gameTick=function()
       this.removeEffects(this.fighters[i]);
       this.testFighter(this.fighters[i]);
     }
-    this.sendToAsgard();
+    this.sendToAsgard(); //Creative naming always helps. Always. Trust me.
+    
+    //Missiles
     for(var i=0;i<this.missiles.length;i++)
     {
       this.moveMissile(this.missiles[i]);
@@ -524,7 +535,67 @@ RomboFight.prototype.gameTick=function()
     }
     this.cleanupMissiles();
     
+    //You are on your own figuring out this one
     this.checkMatch();
+  }
+  this.tickId++;
+}
+
+//Sorry, I wasn't right. If anything becomes slow, they blame THIS code.
+RomboFight.prototype.gameDraw=function()
+{
+  this.stats.currentDraw.linesDrawn=0;
+  if(this.drawWarning) //The most beautiful part of the code and the game itself
+  {
+    this.context.fillStyle="#ff0000";
+    this.context.fillRect(0,0,this.canvas.width,this.canvas.height);
+    this.drawWarning=false;
+  }
+  if(Array("game").indexOf(this.mode)>-1) //See?
+  {
+    //Corpses
+    for(var i=0;i<this.corpses.length;i++)
+    {
+      this.drawCorpse(this.corpses[i]);
+    }
+    
+    //Fighters
+    for(var i=0;i<this.fighters.length;i++)
+    {
+      this.drawFighter(this.fighters[i]);
+    }
+    
+    //Missiles
+    for(var i=0;i<this.missiles.length;i++)
+    {
+      this.drawMissile(this.missiles[i]);
+    }
+    
+    //Some shit for the AI
+    if(this.options.visualizeAi)
+    {
+      for(var i=0;i<this.aiPoints.length;i++)
+      {
+        //Too lazy to write a function
+        var aiStuff=this.aiPoints[i];
+        
+        this.context.beginPath();
+        this.context.arc(aiStuff.x || 0,aiStuff.y || 0,(aiStuff.size || 5),0,2*Math.PI);
+        this.context.fillStyle=this.multiplyColor(this.enemyColor.color,aiStuff.strength/2 || 0.5);
+        this.context.fill();
+      }
+    }
+    
+    //HUD
+    for(var i in this.inputs)
+    {
+      var player=this.getPlayerId(this.inputs[i].color);
+      this.drawHud(player,i);
+    }
+    this.drawStandings();
+    
+    //Other stuff
+    this.notifholder.left=""; //What the hell is this?
     
     if(!this.stats.ingame)
     {
@@ -541,42 +612,6 @@ RomboFight.prototype.gameTick=function()
       this.notifholder.style.right="auto";
     }
     this.stats.ingame=false;
-  }
-  this.tickId++;
-}
-
-//Sorry, I wasn't right. If anything becomes slow, they blame THIS code.
-RomboFight.prototype.gameDraw=function()
-{
-  this.stats.currentDraw.linesDrawn=0;
-  if(this.drawWarning)
-  {
-    this.context.fillStyle="#ff0000";
-    this.context.fillRect(0,0,this.canvas.width,this.canvas.height);
-    this.drawWarning=false;
-  }
-  if(Array("game").indexOf(this.mode)>-1) //See?
-  {
-    for(var i=0;i<this.corpses.length;i++)
-    {
-      this.drawCorpse(this.corpses[i]);
-    }
-    for(var i=0;i<this.fighters.length;i++)
-    {
-      this.drawFighter(this.fighters[i]);
-    }
-    for(var i=0;i<this.missiles.length;i++)
-    {
-      this.drawMissile(this.missiles[i]);
-    }
-    for(var i in this.inputs)
-    {
-      var player=this.getPlayerId(this.inputs[i].color);
-      this.drawHud(player,i);
-    }
-    this.drawStandings();
-    
-    this.notifholder.left="";
   }
   //console.log(this.stats.currentDraw.linesDrawn);
   
@@ -734,8 +769,8 @@ RomboFight.prototype.useControl=function(control)
   if(control.input.type=="gamepad")
   {
     if(!this.getGamepadByIndex(control.input.index)
-    || control.input.pressed.indexOf(9)>-1
-    || control.input.pressed.indexOf(10)>-1)
+    || control.input.pressed.indexOf(8)>-1
+    || control.input.pressed.indexOf(9)>-1)
     {
       if(this.getGamepadByIndex(control.input.index))
       {
@@ -1361,7 +1396,7 @@ RomboFight.prototype.testFighter=function(fighter)
     var collisionRatio=this.point(0,0);
     if(this.testCollision(fighter,this.fighters[i],collisionRatio))
     {
-      if(!fighter.inCollision)
+      if(!fighter.inCollision && (this.options.friendlyHit || this.fighters[i].jedi!=fighter.jedi))
       {
         this.damageFighter(fighter,this.fighters[i]);
         this.damageFighter(this.fighters[i],fighter);
@@ -1721,6 +1756,14 @@ RomboFight.prototype.reactToAi=function(response,jedi)
         control.secondary=data.controls[i].secondary;
         control.support=data.controls[i].support;
         control.ultra=data.controls[i].ultra;
+      }
+      if(data.points && data.points.length)
+      {
+        game.aiPoints=[];
+        for(var i in data.points)
+        {
+          game.aiPoints.push(data.points[i]);
+        }
       }
     }
   }

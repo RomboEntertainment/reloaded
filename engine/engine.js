@@ -158,65 +158,12 @@ RomboEngine=function(input)
     }
   });
   
-  /* Mouse control disabled
-  //Clicking, if you cannot understand my code. Wait, why are you reading then?
-  this.holder.addEventListener('mousedown',function(){
-    //Drop in system for mice too
-    var mouseIsDroppedIn=false;
-    var mouseInput=0;
-    for(i=0;i<self.inputs.length;i++)
-    {
-      if(self.inputs[i].type=="mouse")
-      {
-        mouseIsDroppedIn=true;
-        mouseInput=i;
-      }
-    }
-    if(!mouseIsDroppedIn)
-    {
-      self.dropIn({
-        "type":"mouse",
-        "settings":[],
-        "deviceName":"Mouse",
-        "clicking":true,
-        "justClciked":false,
-        "lookAt":document.body
-      })
-    }
-    else
-    {
-      self.inputs[mouseInput].clicking=true;
-      self.inputs[mouseInput].justClicked=true;
-    }
+  //Mouse inferior race
+  this.holder.addEventListener('mousemove',function(){
+    self.holder.style.cursor="initial";
+    self.lastMouse=window.performance.now();
   });
-  
-  //Please figure out this one yourself
-  this.holder.addEventListener('mouseup',function(){
-    //Please
-    var mouseIsDroppedIn=false;
-    var mouseInput=0;
-    for(i=0;i<self.inputs.length;i++)
-    {
-      if(self.inputs[i].type=="mouse")
-      {
-        mouseIsDroppedIn=true;
-        mouseInput=i;
-      }
-    }
-    //Ctrl+V is my favorite tool
-    if(mouseIsDroppedIn)
-    {
-      self.inputs[mouseInput].clicking=false;
-      self.inputs[mouseInput].justClicked=false;
-    }
-  });
-  
-  //Mouse Tracking System (Codename: C.A.T.)
-  this.holder.addEventListener('mousemove',function(event){
-    self.mouse=({
-      "lookAt":event.toElement
-    });
-  }); */
+  this.lastMouse=window.performance.now();
   
   //Menu definitions. That will be long...
   this.menus={
@@ -489,6 +436,7 @@ RomboEngine=function(input)
   this.options.antialiasLevel=2;
   this.options.enableAntialiasStorage=true;
   this.options.enableColorTransparency=true;
+  this.options.hideMouse=true;
   
   //Same there
   this.stats={};
@@ -603,6 +551,12 @@ RomboEngine.prototype.draw=function()
   //Don't worry about the HUD. That's DOM and the browser makes it for us.
   //You are not an intelligence dampening core to draw the HUD to the canvas.
   
+  //But do worry about mice. They are so dangerous...
+  if(window.performance.now()-this.lastMouse>2000 && this.options.hideMouse)
+  {
+    this.holder.style.cursor="none";
+  }
+  
   //This is needed for the draw loop
   var self=this;
   requestAnimFrame(function(){
@@ -702,7 +656,7 @@ RomboEngine.prototype.checkDropInGamepads=function()
       var gamepad;
       if(gamepad=this.getInputGamepadByIndex(i))
       {
-        this.dropOut(this.getPlayerId(gamepad.color));
+        this.dropOut(this.getPlayerId(gamepad.color),"Gamepad disconnected");
       }
     }
   }
@@ -796,10 +750,10 @@ RomboEngine.prototype.dropIn=function(currentInput)
 }
 
 //No comments for you with this one. Oh wait...
-RomboEngine.prototype.dropOut=function(player)
+RomboEngine.prototype.dropOut=function(player,reason)
 {
   var input=this.getInputByPlayer(player);
-  this.notify(input.deviceName+" dropped out from "+this.colorSettings[player].name,player);
+  this.notify(input.deviceName+" dropped out from "+this.colorSettings[player].name+(reason ? " - "+reason : ""),player);
   this.inputs.splice(this.inputs.indexOf(input),1);
   if(input.type=="gamepad")
   {

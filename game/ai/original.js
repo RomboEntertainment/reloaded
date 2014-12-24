@@ -6,6 +6,7 @@ var options, weapons, fighters, missiles, field, weaponSlots;
 var controls=[];
 
 var lastData, lastFighters, lastWorthy, lastEstimate, lastEnemy;
+var visualize=false;
 
 function getControlById(id)
 {
@@ -179,6 +180,25 @@ function estimateShot(pos,speed,target,threshold)
   return Math.abs(hitDistance)<threshold;
 }
 
+function visualizePoint(point,strength,size)
+{
+  var p={};
+  if(point)
+  {
+    p.x=point.x;
+    p.y=point.y;
+  }
+  if(strength)
+  {
+    p.strength=point.strength;
+  }
+  if(size)
+  {
+    p.size=point.size;
+  }
+  return p;
+}
+
 onmessage=function(event) {
   var data=event.data;
   if(data.type=="tick")
@@ -187,6 +207,7 @@ onmessage=function(event) {
     
     var response={
       "controls":data.controls,
+      "points":[],
       "type":"control"
     }
     
@@ -255,17 +276,24 @@ onmessage=function(event) {
         if(enemy)
         {
           var primary=getWeapon(fighter,0);
-          var pos={"x":fighter.pos.x+weaponSlots[0].x*fighter.sizeRatio,"y":fighter.pos.y+weaponSlots[0].y*fighter.sizeRatio};
+          var pos={"x":fighter.pos.x+weaponSlots[0].x*fighter.sizeRatio+fighter.speed.x*data.delay,"y":fighter.pos.y+weaponSlots[0].y*fighter.sizeRatio+fighter.speed.y*data.delay};
           var speed={"x":fighter.speed.x*0.25,"y":fighter.speed.y*0.25+weapons[primary.type].barrels[primary.barrelID].shotPower};
-          var target=enemy.pos;
+          var target={"x":enemy.pos.x+enemy.speed.x*data.delay,"y":enemy.pos.y+enemy.speed.y*data.delay};
           shootPrimary=estimateShot(pos,speed,target,enemy.size.x*3);
           shootSecondary=estimateShot(pos,speed,target,enemy.size.x);
+          if(visualize)
+          {
+            response.points.push(visualizePoint(pos,3));
+            response.points.push(visualizePoint(target,3));
+          }
         }
+        
         response.controls[i].primary=shootPrimary;
         response.controls[i].secondary=shootSecondary;
       }
     }
     
+    //console.log(response.points);
     postMessage(response);
   }
   if(data.type=="init")
@@ -295,6 +323,10 @@ onmessage=function(event) {
     if(data.action=="guess")
     {
       console.log(lastEstimate);
+    }
+    if(data.action="visualize")
+    {
+      visualize=!visualize;
     }
   }
 }
